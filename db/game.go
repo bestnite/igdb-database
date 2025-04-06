@@ -109,12 +109,14 @@ func ConvertGame(game *pb.Game) (*model.Game, error) {
 	}
 	res.Bundles = bundlesIds
 
-	coverId := game.Cover.Id
-	cover, err := GetItemByIGDBID[pb.Cover](endpoint.EPCovers, coverId)
-	if err != nil {
-		return nil, err
+	if game.Cover != nil {
+		coverId := game.Cover.Id
+		cover, err := GetItemByIGDBID[pb.Cover](endpoint.EPCovers, coverId)
+		if err != nil {
+			return nil, err
+		}
+		res.Cover = cover.Item
 	}
-	res.Cover = cover.Item
 
 	res.CreatedAt = game.CreatedAt
 
@@ -147,12 +149,14 @@ func ConvertGame(game *pb.Game) (*model.Game, error) {
 
 	res.Franchise = nil
 
-	franchiseId := game.Franchise.Id
-	franchise, err := GetItemByIGDBID[pb.Franchise](endpoint.EPFranchises, franchiseId)
-	if err != nil {
-		return nil, err
+	if game.Franchise != nil {
+		franchiseId := game.Franchise.Id
+		franchise, err := GetItemByIGDBID[pb.Franchise](endpoint.EPFranchises, franchiseId)
+		if err != nil {
+			return nil, err
+		}
+		res.Franchise = franchise.Item
 	}
-	res.Franchise = franchise.Item
 
 	franchiseIds := make([]uint64, 0, len(game.Franchises))
 	for _, g := range game.Franchises {

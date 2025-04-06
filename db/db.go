@@ -331,7 +331,10 @@ func GetItemByIGDBID[T any](e endpoint.EndpointName, id uint64) (*model.Item[T],
 }
 
 func GetItemsByIGDBIDs[T any](e endpoint.EndpointName, ids []uint64) (map[uint64]*model.Item[T], error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(len(ids))*200*time.Millisecond)
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second+time.Duration(len(ids))*200*time.Millisecond)
 	defer cancel()
 
 	coll := GetInstance().Collections[e]
@@ -339,7 +342,6 @@ func GetItemsByIGDBIDs[T any](e endpoint.EndpointName, ids []uint64) (map[uint64
 		return nil, fmt.Errorf("collection not found")
 	}
 	cursor, err := coll.Find(ctx, bson.M{"item.id": bson.M{"$in": ids}})
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to get items %s: %v", string(e), err)
 	}
@@ -360,10 +362,6 @@ func GetItemsByIGDBIDs[T any](e endpoint.EndpointName, ids []uint64) (map[uint64
 		} else {
 			return nil, fmt.Errorf("failed to get id from item %s: %v", string(e), err)
 		}
-	}
-
-	if len(res) != len(ids) {
-		return nil, fmt.Errorf("failed to get all items %s: %v", string(e), err)
 	}
 
 	return res, nil
