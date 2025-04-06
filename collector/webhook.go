@@ -176,6 +176,17 @@ func webhook[T any](
 			return
 		}
 
+		if _, ok := any(e).(*endpoint.Games); ok {
+			game, err := db.GetItemByIGDBID[pb.Game](endpoint.EPGames, data.ID)
+			if err == nil {
+				g, err := db.ConvertGame(game.Item)
+				if err == nil {
+					g.MId = game.MId
+					_ = db.SaveGame(g)
+				}
+			}
+		}
+
 		// update associated game
 		type gameGetter interface {
 			GetGame() *pb.Game
@@ -185,26 +196,29 @@ func webhook[T any](
 			game, err := db.GetItemByIGDBID[pb.Game](endpoint.EPGames, v.GetGame().Id)
 			if err != nil && err != mongo.ErrNoDocuments {
 				log.Printf("failed to get game: %v", err)
-				return
+				goto END
 			}
 			g, err := db.ConvertGame(game.Item)
 			if err != nil {
 				log.Printf("failed to convert game: %v", err)
-				return
+				goto END
 			}
 			oldGame, err := db.GetGameByIGDBID(game.Item.Id)
 			if err != nil && err != mongo.ErrNoDocuments {
 				log.Printf("failed to get game: %v", err)
-				return
+				goto END
 			}
-			g.MId = oldGame.MId
+			if oldGame != nil {
+				g.MId = oldGame.MId
+			}
 			err = db.SaveGame(g)
 			if err != nil {
 				log.Printf("failed to save game: %v", err)
-				return
+				goto END
 			}
 		}
 
+	END:
 		log.Printf("%s %d saved", e.GetEndpointName(), data.ID)
 	}
 }
