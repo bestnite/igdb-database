@@ -75,6 +75,177 @@ func (m *MongoDB) createIndex() {
 	if err != nil {
 		log.Printf("failed to create index: %v", err)
 	}
+
+	_, err = m.Collections[endpoint.EPAlternativeNames].Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "item.name", Value: "text"},
+		},
+	})
+	if err != nil {
+		log.Printf("failed to create index: %v", err)
+	}
+
+	_, err = m.Collections[endpoint.EPAlternativeNames].Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "item.game.id", Value: 1},
+		},
+	})
+	if err != nil {
+		log.Printf("failed to create index: %v", err)
+	}
+
+	_, err = m.Collections[endpoint.EPArtworks].Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "item.game.id", Value: 1},
+		},
+	})
+	if err != nil {
+		log.Printf("failed to create index: %v", err)
+	}
+
+	_, err = m.Collections[endpoint.EPCollectionMemberships].Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "item.game.id", Value: 1},
+		},
+	})
+	if err != nil {
+		log.Printf("failed to create index: %v", err)
+	}
+
+	_, err = m.Collections[endpoint.EPCovers].Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "item.game.id", Value: 1},
+		},
+	})
+	if err != nil {
+		log.Printf("failed to create index: %v", err)
+	}
+
+	_, err = m.Collections[endpoint.EPExternalGames].Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "item.game.id", Value: 1},
+		},
+	})
+	if err != nil {
+		log.Printf("failed to create index: %v", err)
+	}
+
+	_, err = m.Collections[endpoint.EPGames].Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "item.parent_game.id", Value: 1},
+		},
+	})
+	if err != nil {
+		log.Printf("failed to create index: %v", err)
+	}
+
+	_, err = m.Collections[endpoint.EPGames].Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "item.version_parent.id", Value: 1},
+		},
+	})
+	if err != nil {
+		log.Printf("failed to create index: %v", err)
+	}
+
+	_, err = m.Collections[endpoint.EPGameEngines].Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "item.game.id", Value: 1},
+		},
+	})
+	if err != nil {
+		log.Printf("failed to create index: %v", err)
+	}
+
+	_, err = m.Collections[endpoint.EPGameLocalizations].Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "item.game.id", Value: 1},
+		},
+	})
+	if err != nil {
+		log.Printf("failed to create index: %v", err)
+	}
+
+	_, err = m.Collections[endpoint.EPGameVersions].Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "item.game.id", Value: 1},
+		},
+	})
+	if err != nil {
+		log.Printf("failed to create index: %v", err)
+	}
+
+	_, err = m.Collections[endpoint.EPGameVersionFeatureValues].Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "item.game.id", Value: 1},
+		},
+	})
+	if err != nil {
+		log.Printf("failed to create index: %v", err)
+	}
+
+	_, err = m.Collections[endpoint.EPGameVideos].Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "item.game.id", Value: 1},
+		},
+	})
+	if err != nil {
+		log.Printf("failed to create index: %v", err)
+	}
+
+	_, err = m.Collections[endpoint.EPInvolvedCompanies].Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "item.game.id", Value: 1},
+		},
+	})
+	if err != nil {
+		log.Printf("failed to create index: %v", err)
+	}
+
+	_, err = m.Collections[endpoint.EPLanguageSupports].Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "item.game.id", Value: 1},
+		},
+	})
+	if err != nil {
+		log.Printf("failed to create index: %v", err)
+	}
+
+	_, err = m.Collections[endpoint.EPMultiplayerModes].Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "item.game.id", Value: 1},
+		},
+	})
+	if err != nil {
+		log.Printf("failed to create index: %v", err)
+	}
+
+	_, err = m.Collections[endpoint.EPReleaseDates].Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "item.game.id", Value: 1},
+		},
+	})
+	if err != nil {
+		log.Printf("failed to create index: %v", err)
+	}
+
+	_, err = m.Collections[endpoint.EPScreenshots].Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "item.game.id", Value: 1},
+		},
+	})
+	if err != nil {
+		log.Printf("failed to create index: %v", err)
+	}
+
+	_, err = m.Collections[endpoint.EPWebsites].Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "item.game.id", Value: 1},
+		},
+	})
+	if err != nil {
+		log.Printf("failed to create index: %v", err)
+	}
 }
 
 func SaveItem[T any](e endpoint.EndpointName, item *model.Item[T]) error {
