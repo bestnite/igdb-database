@@ -21,8 +21,9 @@ var (
 )
 
 type MongoDB struct {
-	client      *mongo.Client
-	Collections map[endpoint.EndpointName]*mongo.Collection
+	client         *mongo.Client
+	Collections    map[endpoint.EndpointName]*mongo.Collection
+	GameCollection *mongo.Collection
 }
 
 func GetInstance() *MongoDB {
@@ -48,6 +49,7 @@ func GetInstance() *MongoDB {
 			instance.Collections[e] = client.Database(config.C().Database.Database).Collection(string(e))
 		}
 
+		instance.GameCollection = client.Database(config.C().Database.Database).Collection("game_details")
 		instance.createIndex()
 	})
 
@@ -449,4 +451,56 @@ func RemoveDuplicateItems(e endpoint.EndpointName) error {
 	}
 
 	return nil
+}
+
+func GetItemsByIGDBGameID[T any](e endpoint.EndpointName, id uint64) ([]*model.Item[T], error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	coll := GetInstance().Collections[e]
+	if coll == nil {
+		return nil, fmt.Errorf("collection not found")
+	}
+	cursor, err := coll.Find(ctx, bson.M{"item.game.id": id})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get items %s: %v", string(e), err)
+	}
+
+	var items []*model.Item[T]
+	for cursor.Next(ctx) {
+		item := model.Item[T]{}
+		err := cursor.Decode(&item)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode item %s: %v", string(e), err)
+		}
+		items = append(items, &item)
+	}
+
+	return items, nil
+}
+
+func GetItemsPagnated[T any](e endpoint.EndpointName, offset int64, limit int64) ([]*model.Item[T], error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(limit)*200*time.Millisecond)
+	defer cancel()
+
+	coll := GetInstance().Collections[e]
+	if coll == nil {
+		return nil, fmt.Errorf("collection not found")
+	}
+	cursor, err := coll.Find(ctx, bson.M{}, options.Find().SetSkip(offset).SetLimit(limit).SetSort(bson.D{{Key: "item.id", Value: 1}}))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get items %s: %v", string(e), err)
+	}
+
+	var items []*model.Item[T]
+	for cursor.Next(ctx) {
+		item := model.Item[T]{}
+		err := cursor.Decode(&item)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode item %s: %v", string(e), err)
+		}
+		items = append(items, &item)
+	}
+
+	return items, nil
 }

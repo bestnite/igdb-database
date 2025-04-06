@@ -66,9 +66,12 @@ func FetchAndStore[T any](
 					log.Printf("failed to get id from item: %v", err)
 					return
 				} else {
-					n := model.NewItem(item)
-					n.MId = data[v.GetId()].MId
-					newItems = append(newItems, n)
+					if data[v.GetId()] == nil {
+						newItems = append(newItems, model.NewItem(item))
+					} else {
+						data[v.GetId()].Item = item
+						newItems = append(newItems, data[v.GetId()])
+					}
 				}
 			}
 			err = db.SaveItems(e.GetEndpointName(), newItems)

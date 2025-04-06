@@ -5,6 +5,7 @@ go 1.24.1
 require (
 	github.com/bestnite/go-igdb v0.0.9
 	go.mongodb.org/mongo-driver/v2 v2.1.0
+	google.golang.org/protobuf v1.36.6
 )
 
 require (
@@ -29,6 +30,5 @@ require (
 	golang.org/x/sync v0.12.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect
 	golang.org/x/text v0.23.0 // indirect
-	google.golang.org/protobuf v1.36.6 // indirect
 	h12.io/socks v1.0.3 // indirect
 )

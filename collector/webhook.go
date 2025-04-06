@@ -13,6 +13,8 @@ import (
 	"net/url"
 	"slices"
 
+	pb "github.com/bestnite/go-igdb/proto"
+
 	"github.com/bestnite/go-igdb"
 	"github.com/bestnite/go-igdb/endpoint"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -111,9 +113,7 @@ func StartWebhookServer(client *igdb.Client) {
 			}
 			log.Printf("webhook \"%s\" registered", endp)
 		}
-		if err != nil {
-			log.Fatalf("failed to active webhook \"%s\": %v", endpoint.EPGames, err)
-		}
+		log.Printf("all webhook registered")
 	}
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -123,6 +123,7 @@ func StartWebhookServer(client *igdb.Client) {
 		}
 	})
 
+	log.Printf("starting webhook server on %s", config.C().Address)
 	err = http.ListenAndServe(config.C().Address, nil)
 	if err != nil {
 		log.Fatalf("failed to start webhook server: %v", err)
@@ -138,35 +139,31 @@ func webhook[T any](
 			w.WriteHeader(401)
 			return
 		}
+		w.WriteHeader(200)
 		data := struct {
 			ID uint64 `json:"id"`
 		}{}
 		jsonBytes, err := io.ReadAll(r.Body)
 		if err != nil {
 			log.Printf("failed to read request body: %v", err)
-			w.WriteHeader(500)
 			return
 		}
 		err = json.Unmarshal(jsonBytes, &data)
 		if err != nil {
 			log.Printf("failed to unmarshal request body: %v", err)
-			w.WriteHeader(500)
 			return
 		}
 		if data.ID == 0 {
-			w.WriteHeader(400)
 			return
 		}
 		item, err := e.GetByID(data.ID)
 		if err != nil {
 			log.Printf("failed to get %s: %v", e.GetEndpointName(), err)
-			w.WriteHeader(500)
 			return
 		}
 		oldItem, err := db.GetItemByIGDBID[T](e.GetEndpointName(), data.ID)
 		if err != nil && err != mongo.ErrNoDocuments {
 			log.Printf("failed to get %s: %v", e.GetEndpointName(), err)
-			w.WriteHeader(500)
 			return
 		}
 		newItem := model.NewItem(item)
@@ -176,10 +173,38 @@ func webhook[T any](
 		err = db.SaveItem(e.GetEndpointName(), newItem)
 		if err != nil {
 			log.Printf("failed to save %s: %v", e.GetEndpointName(), err)
-			w.WriteHeader(500)
 			return
 		}
+
+		// update associated game
+		type gameGetter interface {
+			GetGame() *pb.Game
+		}
+
+		if v, ok := any(item).(gameGetter); ok {
+			game, err := db.GetItemByIGDBID[pb.Game](endpoint.EPGames, v.GetGame().Id)
+			if err != nil && err != mongo.ErrNoDocuments {
+				log.Printf("failed to get game: %v", err)
+				return
+			}
+			g, err := db.ConvertGame(game.Item)
+			if err != nil {
+				log.Printf("failed to convert game: %v", err)
+				return
+			}
+			oldGame, err := db.GetGameByIGDBID(game.Item.Id)
+			if err != nil && err != mongo.ErrNoDocuments {
+				log.Printf("failed to get game: %v", err)
+				return
+			}
+			g.MId = oldGame.MId
+			err = db.SaveGame(g)
+			if err != nil {
+				log.Printf("failed to save game: %v", err)
+				return
+			}
+		}
+
 		log.Printf("%s %d saved", e.GetEndpointName(), data.ID)
-		w.WriteHeader(200)
 	}
 }

@@ -5,9 +5,12 @@ import (
 	"igdb-database/config"
 	"igdb-database/db"
 	"log"
+	"sync"
+	"sync/atomic"
 
 	"github.com/bestnite/go-igdb"
 	"github.com/bestnite/go-igdb/endpoint"
+	pb "github.com/bestnite/go-igdb/proto"
 )
 
 func main() {
@@ -83,7 +86,70 @@ func main() {
 	fetchAndStore(client.Websites)
 	fetchAndStore(client.WebsiteTypes)
 
+	log.Printf("aggregating games")
+	aggregateGames()
+	log.Printf("games aggregated")
+
+	log.Printf("starting webhook server")
 	collector.StartWebhookServer(client)
+}
+
+func aggregateGames() {
+	total, err := db.CountItems(endpoint.EPGames)
+	if err != nil {
+		log.Fatalf("failed to count games: %v", err)
+	}
+
+	finished := int64(0)
+	wg := sync.WaitGroup{}
+
+	concurrenceNum := 10
+	taskOneLoop := int64(500)
+
+	concurrence := make(chan struct{}, concurrenceNum)
+	defer close(concurrence)
+	for i := int64(0); i < total; i += taskOneLoop {
+		concurrence <- struct{}{}
+		wg.Add(1)
+		go func(i int64) {
+			defer func() { <-concurrence }()
+			defer wg.Done()
+			items, err := db.GetItemsPagnated[pb.Game](endpoint.EPGames, i, taskOneLoop)
+			if err != nil {
+				log.Fatalf("failed to get games: %v", err)
+			}
+			games := make([]*pb.Game, 0, len(items))
+			for _, item := range items {
+				games = append(games, item.Item)
+			}
+			isAggregated, err := db.IsGamesAggregated(games)
+			if err != nil {
+				log.Fatalf("failed to check if games are aggregated: %v", err)
+			}
+			for _, item := range items {
+				if isAggregated[item.Item.Id] {
+					p := atomic.AddInt64(&finished, 1)
+					log.Printf("game aggregated %d/%d", p, total)
+					continue
+				}
+				if err != nil {
+					log.Fatalf("failed to check if game is aggregated: %v", err)
+				}
+
+				game, err := db.ConvertGame(item.Item)
+				if err != nil {
+					log.Fatalf("failed to convert game: %v", err)
+				}
+				err = db.SaveGame(game)
+				if err != nil {
+					log.Fatalf("failed to save game: %v", err)
+				}
+				p := atomic.AddInt64(&finished, 1)
+				log.Printf("game aggregated %d/%d", p, total)
+			}
+		}(i)
+	}
+	wg.Wait()
 }
 
 func fetchAndStore[T any](

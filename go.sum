@@ -23,14 +23,6 @@ github.com/anmitsu/go-shlex v0.0.0-20161002113705-648efa622239/go.mod h1:2FmKhYU
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/bestnite/go-flaresolverr v0.0.0-20250404141941-4644c2e66727 h1:F1fNb9j7wgPXa54SWAIYn1l8NJTg74Qx3EJ8qmys6FY=
 github.com/bestnite/go-flaresolverr v0.0.0-20250404141941-4644c2e66727/go.mod h1:LX2oPIfG4LnUtQ7FAWV727IXuODZVbzRwG/7t2KdMNo=
-github.com/bestnite/go-igdb v0.0.5 h1:/1cFbbYjQCGMFcE1bzYlvkYG+n//A08t/3lWb0OgU5s=
-github.com/bestnite/go-igdb v0.0.5/go.mod h1:HBPwYCgSVd7oaiLWJVV72UpqsmIYjUmaIvGmuFk3CwY=
-github.com/bestnite/go-igdb v0.0.6 h1:TDVK5JxOoy+YQX4cX7zupJWDWZCZaRmuyAny3NnBbSs=
-github.com/bestnite/go-igdb v0.0.6/go.mod h1:HBPwYCgSVd7oaiLWJVV72UpqsmIYjUmaIvGmuFk3CwY=
-github.com/bestnite/go-igdb v0.0.7 h1:a4JyQH/k/aWoWeD9RN929LqayRXibif+CxtsDaKKCQc=
-github.com/bestnite/go-igdb v0.0.7/go.mod h1:HBPwYCgSVd7oaiLWJVV72UpqsmIYjUmaIvGmuFk3CwY=
-github.com/bestnite/go-igdb v0.0.8 h1:BRf2EFESIqHfsYEVJKywTWxZ23tg4O4XYU+ucdchvOE=
-github.com/bestnite/go-igdb v0.0.8/go.mod h1:HBPwYCgSVd7oaiLWJVV72UpqsmIYjUmaIvGmuFk3CwY=
 github.com/bestnite/go-igdb v0.0.9 h1:3n1OHSf6mA2ygoktbcVvAlQXZjkmtKuP1+Ql1pNAN5I=
 github.com/bestnite/go-igdb v0.0.9/go.mod h1:HBPwYCgSVd7oaiLWJVV72UpqsmIYjUmaIvGmuFk3CwY=
 github.com/bradfitz/go-smtpd v0.0.0-20170404230938-deb6d6237625/go.mod h1:HYsPBTaaSFSlLx/70C2HPIMNZpVV8+vt/A+FMnYP11g=
