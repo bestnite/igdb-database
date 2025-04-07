@@ -2,6 +2,7 @@ package collector
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"igdb-database/config"
 	"igdb-database/db"
@@ -94,6 +95,22 @@ func StartWebhookServer(client *igdb.Client) {
 	http.HandleFunc(webhook(client.Themes))
 	http.HandleFunc(webhook(client.Websites))
 	http.HandleFunc(webhook(client.WebsiteTypes))
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		if _, err := w.Write([]byte("Hello World!")); err != nil {
+			log.Printf("failed to write response: %v", err)
+		}
+	})
+
+	serverStart := make(chan bool)
+	go func() {
+		defer close(serverStart)
+		log.Printf("starting webhook server on %s", config.C().Address)
+		err = http.ListenAndServe(config.C().Address, nil)
+		if err != nil {
+			log.Fatalf("failed to start webhook server: %v", err)
+		}
+	}()
 
 	enabledEndpoint := endpoint.AllEndpoints
 	enabledEndpoint = slices.DeleteFunc(enabledEndpoint, func(e endpoint.EndpointName) bool {
@@ -116,18 +133,7 @@ func StartWebhookServer(client *igdb.Client) {
 		log.Printf("all webhook registered")
 	}
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(200)
-		if _, err := w.Write([]byte("Hello World!")); err != nil {
-			log.Printf("failed to write response: %v", err)
-		}
-	})
-
-	log.Printf("starting webhook server on %s", config.C().Address)
-	err = http.ListenAndServe(config.C().Address, nil)
-	if err != nil {
-		log.Fatalf("failed to start webhook server: %v", err)
-	}
+	<-serverStart
 }
 
 func webhook[T any](
@@ -162,7 +168,7 @@ func webhook[T any](
 			return
 		}
 		oldItem, err := db.GetItemByIGDBID[T](e.GetEndpointName(), data.ID)
-		if err != nil && err != mongo.ErrNoDocuments {
+		if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
 			log.Printf("failed to get %s: %v", e.GetEndpointName(), err)
 			return
 		}
@@ -183,6 +189,7 @@ func webhook[T any](
 				if err == nil {
 					g.MId = game.MId
 					_ = db.SaveGame(g)
+					log.Printf("game %d aggregated", data.ID)
 				}
 			}
 		}
@@ -216,6 +223,7 @@ func webhook[T any](
 				log.Printf("failed to save game: %v", err)
 				goto END
 			}
+			log.Printf("game %d aggregated", data.ID)
 		}
 
 	END:

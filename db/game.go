@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"igdb-database/model"
 	"time"
@@ -9,28 +10,28 @@ import (
 	"github.com/bestnite/go-igdb/endpoint"
 	pb "github.com/bestnite/go-igdb/proto"
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 func IsGamesAggregated(games []*pb.Game) (map[uint64]bool, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(len(games))*200*time.Millisecond)
-	defer cancel()
-
 	ids := make([]uint64, 0, len(games))
 	for _, game := range games {
 		ids = append(ids, game.Id)
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(len(games))*200*time.Millisecond)
+	defer cancel()
 	cursor, err := GetInstance().GameCollection.Find(ctx, bson.M{"id": bson.M{"$in": ids}})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get games: %v", err)
+		return nil, fmt.Errorf("failed to get games: %w", err)
 	}
 
 	res := make(map[uint64]bool, len(games))
 	g := []*model.Game{}
 	err = cursor.All(ctx, &g)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get games: %v", err)
+		return nil, fmt.Errorf("failed to get games: %w", err)
 	}
 	for _, game := range g {
 		res[game.Id] = true
@@ -40,8 +41,6 @@ func IsGamesAggregated(games []*pb.Game) (map[uint64]bool, error) {
 }
 
 func SaveGame(game *model.Game) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
 	if game.MId.IsZero() {
 		game.MId = bson.NewObjectID()
 	}
@@ -49,6 +48,8 @@ func SaveGame(game *model.Game) error {
 	update := bson.M{"$set": game}
 	opts := options.UpdateOne().SetUpsert(true)
 
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	_, err := GetInstance().GameCollection.UpdateOne(ctx, filter, update, opts)
 	if err != nil {
 		return err
@@ -112,10 +113,12 @@ func ConvertGame(game *pb.Game) (*model.Game, error) {
 	if game.Cover != nil {
 		coverId := game.Cover.Id
 		cover, err := GetItemByIGDBID[pb.Cover](endpoint.EPCovers, coverId)
-		if err != nil {
+		if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, err
 		}
-		res.Cover = cover.Item
+		if cover != nil {
+			res.Cover = cover.Item
+		}
 	}
 
 	res.CreatedAt = game.CreatedAt
@@ -152,10 +155,12 @@ func ConvertGame(game *pb.Game) (*model.Game, error) {
 	if game.Franchise != nil {
 		franchiseId := game.Franchise.Id
 		franchise, err := GetItemByIGDBID[pb.Franchise](endpoint.EPFranchises, franchiseId)
-		if err != nil {
+		if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, err
 		}
-		res.Franchise = franchise.Item
+		if franchise != nil {
+			res.Franchise = franchise.Item
+		}
 	}
 
 	franchiseIds := make([]uint64, 0, len(game.Franchises))
@@ -471,7 +476,7 @@ func GetGameByIGDBID(id uint64) (*model.Game, error) {
 	var game model.Game
 	err := GetInstance().GameCollection.FindOne(ctx, bson.M{"id": id}).Decode(&game)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get game: %v", err)
+		return nil, fmt.Errorf("failed to get game: %w", err)
 	}
 	return &game, nil
 }
