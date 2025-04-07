@@ -14,7 +14,7 @@ import (
 func FetchAndStore[T any](
 	e endpoint.EntityEndpoint[T],
 ) {
-	total, err := e.GetLastOneId()
+	total, err := e.Count()
 	if err != nil {
 		log.Fatalf("failed to get %s length: %v", e.GetEndpointName(), err)
 	}

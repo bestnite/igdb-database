@@ -67,7 +67,7 @@ func aggregateGames() {
 		go func(i int64) {
 			defer func() { <-concurrence }()
 			defer wg.Done()
-			items, err := db.GetItemsPagnated[pb.Game](endpoint.EPGames, i, taskOneLoop)
+			items, err := db.GetItemsPaginated[pb.Game](endpoint.EPGames, i, taskOneLoop)
 			if err != nil {
 				log.Fatalf("failed to get games: %v", err)
 			}

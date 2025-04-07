@@ -28,7 +28,7 @@ func IsGamesAggregated(games []*pb.Game) (map[uint64]bool, error) {
 	}
 
 	res := make(map[uint64]bool, len(games))
-	g := []*model.Game{}
+	var g []*model.Game
 	err = cursor.All(ctx, &g)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get games: %w", err)

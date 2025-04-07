@@ -20,7 +20,7 @@ type Config struct {
 		ClientSecret string `json:"client_secret"`
 	} `json:"twitch"`
 	WebhookSecret string `json:"webhook_secret"`
-	ExtralUrl     string `json:"extral_url"`
+	ExternalUrl   string `json:"external_url"`
 }
 
 var c *Config

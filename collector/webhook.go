@@ -22,7 +22,7 @@ import (
 )
 
 func StartWebhookServer(client *igdb.Client) {
-	baseUrl, err := url.Parse(config.C().ExtralUrl)
+	baseUrl, err := url.Parse(config.C().ExternalUrl)
 	if err != nil {
 		log.Fatalf("failed to parse url: %v", err)
 	}
@@ -112,8 +112,8 @@ func StartWebhookServer(client *igdb.Client) {
 		}
 	}()
 
-	enabledEndpoint := endpoint.AllEndpoints
-	enabledEndpoint = slices.DeleteFunc(enabledEndpoint, func(e endpoint.EndpointName) bool {
+	enabledEndpoint := endpoint.AllNames
+	enabledEndpoint = slices.DeleteFunc(enabledEndpoint, func(e endpoint.Name) bool {
 		return e == endpoint.EPWebhooks || e == endpoint.EPSearch || e == endpoint.EPPopularityPrimitives
 	})
 
@@ -121,14 +121,14 @@ func StartWebhookServer(client *igdb.Client) {
 	if baseUrl.Hostname() == "localhost" || (ip != nil && ip.IsLoopback()) {
 		log.Printf("extral url is localhost. webhook will not be registered")
 	} else {
-		for _, endp := range enabledEndpoint {
-			Url := baseUrl.JoinPath(fmt.Sprintf("/webhook/%s", string(endp)))
-			log.Printf("registering webhook \"%s\" to \"%s\"", endp, Url.String())
-			err = client.Webhooks.Register(endp, config.C().WebhookSecret, Url.String())
+		for _, ep := range enabledEndpoint {
+			Url := baseUrl.JoinPath(fmt.Sprintf("/webhook/%s", string(ep)))
+			log.Printf("registering webhook \"%s\" to \"%s\"", ep, Url.String())
+			err = client.Webhooks.Register(ep, config.C().WebhookSecret, Url.String())
 			if err != nil {
-				log.Fatalf("failed to register webhook \"%s\": %v", endp, err)
+				log.Fatalf("failed to register webhook \"%s\": %v", ep, err)
 			}
-			log.Printf("webhook \"%s\" registered", endp)
+			log.Printf("webhook \"%s\" registered", ep)
 		}
 		log.Printf("all webhook registered")
 	}
@@ -201,7 +201,7 @@ func webhook[T any](
 
 		if v, ok := any(item).(gameGetter); ok {
 			game, err := db.GetItemByIGDBID[pb.Game](endpoint.EPGames, v.GetGame().Id)
-			if err != nil && err != mongo.ErrNoDocuments {
+			if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
 				log.Printf("failed to get game: %v", err)
 				goto END
 			}
@@ -211,7 +211,7 @@ func webhook[T any](
 				goto END
 			}
 			oldGame, err := db.GetGameByIGDBID(game.Item.Id)
-			if err != nil && err != mongo.ErrNoDocuments {
+			if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
 				log.Printf("failed to get game: %v", err)
 				goto END
 			}

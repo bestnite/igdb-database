@@ -22,19 +22,23 @@ var (
 
 type MongoDB struct {
 	client         *mongo.Client
-	Collections    map[endpoint.EndpointName]*mongo.Collection
+	Collections    map[endpoint.Name]*mongo.Collection
 	GameCollection *mongo.Collection
 }
 
 func GetInstance() *MongoDB {
 	once.Do(func() {
+		bsonOpts := &options.BSONOptions{
+			UseJSONStructTags: true,
+		}
+
 		clientOptions := options.Client().ApplyURI(fmt.Sprintf(
 			"mongodb://%s:%s@%s:%v",
 			config.C().Database.User,
 			config.C().Database.Password,
 			config.C().Database.Host,
 			config.C().Database.Port,
-		)).SetConnectTimeout(3 * time.Second)
+		)).SetConnectTimeout(3 * time.Second).SetBSONOptions(bsonOpts)
 
 		client, err := mongo.Connect(clientOptions)
 		if err != nil {
@@ -42,10 +46,10 @@ func GetInstance() *MongoDB {
 		}
 		instance = &MongoDB{
 			client:      client,
-			Collections: make(map[endpoint.EndpointName]*mongo.Collection),
+			Collections: make(map[endpoint.Name]*mongo.Collection),
 		}
 
-		for _, e := range endpoint.AllEndpoints {
+		for _, e := range endpoint.AllNames {
 			instance.Collections[e] = client.Database(config.C().Database.Database).Collection(string(e))
 		}
 
@@ -60,7 +64,7 @@ func (m *MongoDB) createIndex() {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*60*time.Second)
 	defer cancel()
 
-	textIndexMap := map[endpoint.EndpointName]string{
+	textIndexMap := map[endpoint.Name]string{
 		endpoint.EPGames:            "item.name",
 		endpoint.EPAlternativeNames: "item.name",
 	}
@@ -76,7 +80,7 @@ func (m *MongoDB) createIndex() {
 		}
 	}
 
-	indexMap := map[endpoint.EndpointName][]string{
+	indexMap := map[endpoint.Name][]string{
 		endpoint.EPAlternativeNames:         {"item.game.id"},
 		endpoint.EPArtworks:                 {"item.game.id"},
 		endpoint.EPCollectionMemberships:    {"item.game.id"},
@@ -109,7 +113,7 @@ func (m *MongoDB) createIndex() {
 		}
 	}
 
-	for _, e := range endpoint.AllEndpoints {
+	for _, e := range endpoint.AllNames {
 		if e == endpoint.EPWebhooks || e == endpoint.EPSearch || e == endpoint.EPPopularityPrimitives {
 			continue
 		}
@@ -122,9 +126,18 @@ func (m *MongoDB) createIndex() {
 			log.Printf("failed to create index item.id for %s: %v", string(e), err)
 		}
 	}
+
+	_, err := m.GameCollection.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "id", Value: 1},
+		},
+	})
+	if err != nil {
+		log.Printf("failed to create index id for game_details: %v", err)
+	}
 }
 
-func SaveItem[T any](e endpoint.EndpointName, item *model.Item[T]) error {
+func SaveItem[T any](e endpoint.Name, item *model.Item[T]) error {
 	if item.MId.IsZero() {
 		item.MId = bson.NewObjectID()
 	}
@@ -146,7 +159,7 @@ func SaveItem[T any](e endpoint.EndpointName, item *model.Item[T]) error {
 	return nil
 }
 
-func SaveItems[T any](e endpoint.EndpointName, items []*model.Item[T]) error {
+func SaveItems[T any](e endpoint.Name, items []*model.Item[T]) error {
 	var models []mongo.WriteModel
 
 	for _, item := range items {
@@ -155,8 +168,8 @@ func SaveItems[T any](e endpoint.EndpointName, items []*model.Item[T]) error {
 		}
 		filter := bson.M{"_id": item.MId}
 		update := bson.M{"$set": item}
-		model := mongo.NewUpdateOneModel().SetFilter(filter).SetUpdate(update).SetUpsert(true)
-		models = append(models, model)
+		oneModel := mongo.NewUpdateOneModel().SetFilter(filter).SetUpdate(update).SetUpsert(true)
+		models = append(models, oneModel)
 	}
 
 	coll := GetInstance().Collections[e]
@@ -173,7 +186,7 @@ func SaveItems[T any](e endpoint.EndpointName, items []*model.Item[T]) error {
 	return nil
 }
 
-func CountItems(e endpoint.EndpointName) (int64, error) {
+func CountItems(e endpoint.Name) (int64, error) {
 	coll := GetInstance().Collections[e]
 	if coll == nil {
 		return 0, fmt.Errorf("collection not found")
@@ -187,7 +200,7 @@ func CountItems(e endpoint.EndpointName) (int64, error) {
 	return count, nil
 }
 
-func GetItemByIGDBID[T any](e endpoint.EndpointName, id uint64) (*model.Item[T], error) {
+func GetItemByIGDBID[T any](e endpoint.Name, id uint64) (*model.Item[T], error) {
 	var item model.Item[T]
 	coll := GetInstance().Collections[e]
 	if coll == nil {
@@ -202,7 +215,7 @@ func GetItemByIGDBID[T any](e endpoint.EndpointName, id uint64) (*model.Item[T],
 	return &item, nil
 }
 
-func GetItemsByIGDBIDs[T any](e endpoint.EndpointName, ids []uint64) (map[uint64]*model.Item[T], error) {
+func GetItemsByIGDBIDs[T any](e endpoint.Name, ids []uint64) (map[uint64]*model.Item[T], error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -241,22 +254,7 @@ func GetItemsByIGDBIDs[T any](e endpoint.EndpointName, ids []uint64) (map[uint64
 	return res, nil
 }
 
-func RemoveItemByID(e endpoint.EndpointName, id bson.ObjectID) error {
-	coll := GetInstance().Collections[e]
-	if coll == nil {
-		return fmt.Errorf("collection not found")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	_, err := coll.DeleteOne(ctx, bson.M{"_id": id})
-	if err != nil {
-		return fmt.Errorf("failed to remove game: %w", err)
-	}
-	return nil
-}
-
-func RemoveItemsByID(e endpoint.EndpointName, ids []bson.ObjectID) error {
+func RemoveItemsByID(e endpoint.Name, ids []bson.ObjectID) error {
 	coll := GetInstance().Collections[e]
 	if coll == nil {
 		return fmt.Errorf("collection not found")
@@ -271,86 +269,7 @@ func RemoveItemsByID(e endpoint.EndpointName, ids []bson.ObjectID) error {
 	return nil
 }
 
-func RemoveDuplicateItems(e endpoint.EndpointName) error {
-	coll := GetInstance().Collections[e]
-	if coll == nil {
-		return fmt.Errorf("collection not found")
-	}
-	pipeline := bson.A{
-		bson.D{
-			{Key: "$group", Value: bson.D{
-				{Key: "_id", Value: "$item.id"},
-				{Key: "docs", Value: bson.D{
-					{Key: "$push", Value: "$_id"},
-				}},
-			}},
-		},
-		bson.D{
-			{Key: "$match", Value: bson.D{
-				{Key: "$expr", Value: bson.D{
-					{Key: "$gt", Value: bson.A{
-						bson.D{{Key: "$size", Value: "$docs"}},
-						1,
-					}},
-				}},
-			}},
-		},
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-	cursor, err := coll.Aggregate(ctx, pipeline)
-	if err != nil {
-		return fmt.Errorf("failed to aggregate: %w", err)
-	}
-	var results []struct {
-		ID   uint64          `bson:"_id"`
-		Docs []bson.ObjectID `bson:"docs"`
-	}
-	err = cursor.All(ctx, &results)
-	if err != nil {
-		return fmt.Errorf("failed to get results: %w", err)
-	}
-
-	removedIds := make([]bson.ObjectID, 0, len(results))
-
-	for _, result := range results {
-		removedIds = append(removedIds, result.Docs[1:]...)
-	}
-
-	err = RemoveItemsByID(e, removedIds)
-	if err != nil {
-		return fmt.Errorf("failed to remove duplicate games: %w", err)
-	}
-
-	return nil
-}
-
-func GetItemsByIGDBGameID[T any](e endpoint.EndpointName, id uint64) ([]*model.Item[T], error) {
-	coll := GetInstance().Collections[e]
-	if coll == nil {
-		return nil, fmt.Errorf("collection not found")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	cursor, err := coll.Find(ctx, bson.M{"item.game.id": id})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get items %s: %w", string(e), err)
-	}
-
-	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	var items []*model.Item[T]
-	err = cursor.All(ctx, &items)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode items %s: %w", string(e), err)
-	}
-
-	return items, nil
-}
-
-func GetItemsPagnated[T any](e endpoint.EndpointName, offset int64, limit int64) ([]*model.Item[T], error) {
+func GetItemsPaginated[T any](e endpoint.Name, offset int64, limit int64) ([]*model.Item[T], error) {
 
 	coll := GetInstance().Collections[e]
 	if coll == nil {

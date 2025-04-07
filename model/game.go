@@ -10,7 +10,7 @@ type GameIds []uint64
 type GameId uint64
 
 type Game struct {
-	MId                   bson.ObjectID           `bson:"_id,omitempty" json:"_id,omitempty"`
+	MId                   bson.ObjectID           `json:"_id,omitempty"`
 	Id                    uint64                  `json:"id,omitempty"`
 	AgeRatings            []*pb.AgeRating         `json:"age_ratings,omitempty"`
 	AggregatedRating      float64                 `json:"aggregated_rating,omitempty"`
@@ -67,5 +67,5 @@ type Game struct {
 	GameStatus            *pb.GameStatus          `json:"game_status,omitempty"`
 	GameType              *pb.GameType            `json:"game_type,omitempty"`
 
-	AllNames []string `bson:"all_names,omitempty"`
+	AllNames []string `json:"all_names,omitempty"`
 }
