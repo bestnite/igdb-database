@@ -54,6 +54,21 @@ func SaveGame(game *model.Game) error {
 	return nil
 }
 
+func SaveGames(games []*model.Game) error {
+	updateModel := make([]mongo.WriteModel, 0, len(games))
+	for _, game := range games {
+		updateModel = append(updateModel, mongo.NewUpdateOneModel().SetFilter(bson.M{"id": game.Id}).SetUpdate(bson.M{"$set": game}).SetUpsert(true))
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second+time.Duration(len(games))*200*time.Millisecond)
+	defer cancel()
+	_, err := GetInstance().GameCollection.BulkWrite(ctx, updateModel)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func ConvertGame(game *pb.Game) (*model.Game, error) {
 	res := &model.Game{}
 

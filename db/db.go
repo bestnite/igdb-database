@@ -20,10 +20,9 @@ var (
 )
 
 type MongoDB struct {
-	client          *mongo.Client
-	Collections     map[endpoint.Name]*mongo.Collection
-	GameCollection  *mongo.Collection
-	CountCollection *mongo.Collection
+	client         *mongo.Client
+	Collections    map[endpoint.Name]*mongo.Collection
+	GameCollection *mongo.Collection
 }
 
 func GetInstance() *MongoDB {
@@ -54,7 +53,6 @@ func GetInstance() *MongoDB {
 		}
 
 		instance.GameCollection = client.Database(config.C().Database.Database).Collection("game_details")
-		instance.CountCollection = client.Database(config.C().Database.Database).Collection("count")
 		instance.createIndex()
 	})
 
@@ -115,7 +113,7 @@ func (m *MongoDB) createIndex() {
 	}
 
 	for _, e := range endpoint.AllNames {
-		if e == endpoint.EPWebhooks || e == endpoint.EPSearch || e == endpoint.EPPopularityPrimitives {
+		if e == endpoint.EPWebhooks || e == endpoint.EPSearch {
 			continue
 		}
 		_, err := m.Collections[e].Indexes().CreateOne(ctx, mongo.IndexModel{
@@ -138,6 +136,20 @@ func (m *MongoDB) createIndex() {
 	if err != nil {
 		log.Printf("failed to create index id for game_details: %v", err)
 	}
+}
+
+func CountDocuments(e endpoint.Name) (int64, error) {
+	coll := GetInstance().Collections[e]
+	if coll == nil {
+		return 0, fmt.Errorf("collection not found")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	count, err := coll.CountDocuments(ctx, bson.M{})
+	if err != nil {
+		return 0, fmt.Errorf("failed to count  %s: %w", string(e), err)
+	}
+	return count, nil
 }
 
 func EstimatedDocumentCount(e endpoint.Name) (int64, error) {
