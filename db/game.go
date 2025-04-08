@@ -57,6 +57,10 @@ func SaveGame(game *model.Game) error {
 func ConvertGame(game *pb.Game) (*model.Game, error) {
 	res := &model.Game{}
 
+	if game == nil {
+		return nil, fmt.Errorf("game is nil")
+	}
+
 	res.Id = game.Id
 
 	ageRatingsIds := make([]uint64, 0, len(game.AgeRatings))
