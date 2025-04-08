@@ -34,8 +34,6 @@ func main() {
 		log.Printf("data fetched")
 	}
 
-	Count()
-
 	if *enableAggregate || *enableReAggregate {
 		log.Printf("aggregating games")
 		aggregateGames()
@@ -116,63 +114,6 @@ func fetchAndStore[T any](
 	} else if err != nil {
 		log.Printf("failed to count items: %v", err)
 	}
-}
-
-func Count() {
-	ids, err := db.GetAllItemsIDs[pb.Theme](endpoint.EPThemes)
-	if err != nil {
-		log.Fatalf("failed to get all items ids %s: %v", endpoint.EPThemes, err)
-	}
-
-	concurrence := make(chan struct{}, 10)
-	defer close(concurrence)
-	wg := sync.WaitGroup{}
-
-	for _, id := range ids {
-		concurrence <- struct{}{}
-		wg.Add(1)
-		go func(id uint64) {
-			defer func() {
-				<-concurrence
-				wg.Done()
-			}()
-			count, err := db.CountTheme(id)
-			if err != nil {
-				log.Fatalf("failed to count theme: %v", err)
-			}
-			log.Printf("theme %d count: %d", id, count)
-			err = db.SaveCount(&db.Count{Theme: id, Count: count})
-			if err != nil {
-				log.Fatalf("failed to save count: %v", err)
-			}
-		}(id)
-	}
-
-	ids, err = db.GetAllItemsIDs[pb.Genre](endpoint.EPGenres)
-	if err != nil {
-		log.Fatalf("failed to get all items ids %s: %v", endpoint.EPGenres, err)
-	}
-	for _, id := range ids {
-		concurrence <- struct{}{}
-		wg.Add(1)
-		go func(id uint64) {
-			defer func() {
-				<-concurrence
-				wg.Done()
-			}()
-			count, err := db.CountGenre(id)
-			if err != nil {
-				log.Fatalf("failed to count genre: %v", err)
-			}
-			log.Printf("genre %d count: %d", id, count)
-			err = db.SaveCount(&db.Count{Genre: id, Count: count})
-			if err != nil {
-				log.Fatalf("failed to save count: %v", err)
-			}
-		}(id)
-	}
-
-	wg.Wait()
 }
 
 func allFetchAndStore(client *igdb.Client) {
