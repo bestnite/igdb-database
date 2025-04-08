@@ -2,7 +2,6 @@ package collector
 
 import (
 	"igdb-database/db"
-	"igdb-database/model"
 	"log"
 	"math"
 	"sync"
@@ -33,50 +32,13 @@ func FetchAndStore[T any](
 			defer wg.Done()
 			defer func() { <-concurrence }()
 
-			// items data from igdb
 			items, err := e.Paginated(uint64(i), 500)
 			if err != nil {
 				log.Printf("failed to get items from igdb %s: %v", e.GetEndpointName(), err)
 				return
 			}
 
-			type IdGetter interface {
-				GetId() uint64
-			}
-
-			ids := make([]uint64, 0, len(items))
-			for _, item := range items {
-				if v, ok := any(item).(IdGetter); ok {
-					ids = append(ids, v.GetId())
-				} else {
-					log.Printf("failed to get id from item %s: %v", e.GetEndpointName(), err)
-					return
-				}
-			}
-
-			// items data from database
-			data, err := db.GetItemsByIGDBIDs[T](e.GetEndpointName(), ids)
-			if err != nil {
-				log.Printf("failed to get items from database %s: %v", e.GetEndpointName(), err)
-				return
-			}
-
-			newItems := make([]*model.Item[T], 0, len(items))
-			for _, item := range items {
-				v, ok := any(item).(IdGetter)
-				if !ok {
-					log.Printf("failed to get id from item %s: %v", e.GetEndpointName(), err)
-					return
-				} else {
-					if data[v.GetId()] == nil {
-						newItems = append(newItems, model.NewItem(item))
-					} else {
-						data[v.GetId()].Item = item
-						newItems = append(newItems, data[v.GetId()])
-					}
-				}
-			}
-			err = db.SaveItems(e.GetEndpointName(), newItems)
+			err = db.SaveItems(e.GetEndpointName(), items)
 			if err != nil {
 				log.Printf("failed to save games %s: %v", e.GetEndpointName(), err)
 				return

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"igdb-database/config"
 	"igdb-database/db"
-	"igdb-database/model"
 	"io"
 	"log"
 	"net"
@@ -167,31 +166,92 @@ func webhook[T any](
 			log.Printf("failed to get %s: %v", e.GetEndpointName(), err)
 			return
 		}
-		oldItem, err := db.GetItemByIGDBID[T](e.GetEndpointName(), data.ID)
+		oldItem, err := db.GetItemById[T](e.GetEndpointName(), data.ID)
 		if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
 			log.Printf("failed to get %s: %v", e.GetEndpointName(), err)
 			return
 		}
-		newItem := model.NewItem(item)
-		if oldItem != nil {
-			newItem.MId = oldItem.MId
-		}
-		err = db.SaveItem(e.GetEndpointName(), newItem)
-		if err != nil {
-			log.Printf("failed to save %s: %v", e.GetEndpointName(), err)
-			return
-		}
 
 		if _, ok := any(e).(*endpoint.Games); ok {
-			game, err := db.GetItemByIGDBID[pb.Game](endpoint.EPGames, data.ID)
-			if err == nil {
-				g, err := db.ConvertGame(game.Item)
-				if err == nil {
-					g.MId = game.MId
+			if oldItem != nil {
+				// oldGame update
+				oldGame := any(oldItem).(*pb.Game)
+				// compare themes and genres
+				game := any(item).(*pb.Game)
+
+				oldGameThemeIds := make([]uint64, 0, len(oldGame.Themes))
+				for _, t := range oldGame.Themes {
+					oldGameThemeIds = append(oldGameThemeIds, t.Id)
+				}
+				gameThemeIds := make([]uint64, 0, len(game.Themes))
+				for _, t := range game.Themes {
+					gameThemeIds = append(gameThemeIds, t.Id)
+				}
+				if !slices.Equal(oldGameThemeIds, gameThemeIds) {
+					for _, t := range oldGameThemeIds {
+						if !slices.Contains(gameThemeIds, t) {
+							_ = db.MinusThemeCount(t)
+						}
+					}
+					for _, t := range gameThemeIds {
+						if !slices.Contains(oldGameThemeIds, t) {
+							_ = db.AddThemeCount(t)
+						}
+					}
+				}
+
+				oldGameGenreIds := make([]uint64, 0, len(oldGame.Genres))
+				for _, t := range oldGame.Genres {
+					oldGameGenreIds = append(oldGameGenreIds, t.Id)
+				}
+				gameGenreIds := make([]uint64, 0, len(game.Genres))
+				for _, t := range game.Genres {
+					gameGenreIds = append(gameGenreIds, t.Id)
+				}
+				if !slices.Equal(oldGameGenreIds, gameGenreIds) {
+					for _, t := range oldGameGenreIds {
+						if !slices.Contains(gameGenreIds, t) {
+							_ = db.MinusGenreCount(t)
+						}
+					}
+					for _, t := range gameGenreIds {
+						if !slices.Contains(oldGameGenreIds, t) {
+							_ = db.AddGenreCount(t)
+						}
+					}
+				}
+
+				g, err := db.ConvertGame(game)
+				if err != nil {
+					log.Printf("failed to convert game: %v", err)
+				} else {
+					_ = db.SaveGame(g)
+					log.Printf("game %d aggregated", data.ID)
+				}
+
+			} else {
+				// new game
+				game := any(item).(*pb.Game)
+				for _, t := range game.Themes {
+					_ = db.AddThemeCount(t.Id)
+				}
+				for _, t := range game.Genres {
+					_ = db.AddGenreCount(t.Id)
+				}
+				g, err := db.ConvertGame(game)
+				if err != nil {
+					log.Printf("failed to convert game: %v", err)
+				} else {
 					_ = db.SaveGame(g)
 					log.Printf("game %d aggregated", data.ID)
 				}
 			}
+		}
+
+		err = db.SaveItem(e.GetEndpointName(), item)
+		if err != nil {
+			log.Printf("failed to save %s: %v", e.GetEndpointName(), err)
+			return
 		}
 
 		// update associated game
@@ -200,23 +260,15 @@ func webhook[T any](
 		}
 
 		if v, ok := any(item).(gameGetter); ok {
-			game, err := db.GetItemByIGDBID[pb.Game](endpoint.EPGames, v.GetGame().Id)
+			game, err := db.GetItemById[pb.Game](endpoint.EPGames, v.GetGame().Id)
 			if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
 				log.Printf("failed to get game: %v", err)
 				goto END
 			}
-			g, err := db.ConvertGame(game.Item)
+			g, err := db.ConvertGame(game)
 			if err != nil {
 				log.Printf("failed to convert game: %v", err)
 				goto END
-			}
-			oldGame, err := db.GetGameByIGDBID(game.Item.Id)
-			if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
-				log.Printf("failed to get game: %v", err)
-				goto END
-			}
-			if oldGame != nil {
-				g.MId = oldGame.MId
 			}
 			err = db.SaveGame(g)
 			if err != nil {

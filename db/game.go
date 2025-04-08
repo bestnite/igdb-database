@@ -41,10 +41,7 @@ func IsGamesAggregated(games []*pb.Game) (map[uint64]bool, error) {
 }
 
 func SaveGame(game *model.Game) error {
-	if game.MId.IsZero() {
-		game.MId = bson.NewObjectID()
-	}
-	filter := bson.M{"_id": game.MId}
+	filter := bson.M{"id": game.Id}
 	update := bson.M{"$set": game}
 	opts := options.UpdateOne().SetUpsert(true)
 
@@ -66,14 +63,11 @@ func ConvertGame(game *pb.Game) (*model.Game, error) {
 	for _, g := range game.AgeRatings {
 		ageRatingsIds = append(ageRatingsIds, g.Id)
 	}
-	ageRatings, err := GetItemsByIGDBIDs[pb.AgeRating](endpoint.EPAgeRatings, ageRatingsIds)
+	ageRatings, err := GetItemsByIds[pb.AgeRating](endpoint.EPAgeRatings, ageRatingsIds)
 	if err != nil {
 		return nil, err
 	}
-	res.AgeRatings = make([]*pb.AgeRating, 0, len(ageRatings))
-	for _, item := range ageRatings {
-		res.AgeRatings = append(res.AgeRatings, item.Item)
-	}
+	res.AgeRatings = ageRatings
 
 	res.AggregatedRating = game.AggregatedRating
 	res.AggregatedRatingCount = game.AggregatedRatingCount
@@ -82,27 +76,21 @@ func ConvertGame(game *pb.Game) (*model.Game, error) {
 	for _, g := range game.AlternativeNames {
 		alternativeNameIds = append(alternativeNameIds, g.Id)
 	}
-	alternativeNames, err := GetItemsByIGDBIDs[pb.AlternativeName](endpoint.EPAlternativeNames, alternativeNameIds)
+	alternativeNames, err := GetItemsByIds[pb.AlternativeName](endpoint.EPAlternativeNames, alternativeNameIds)
 	if err != nil {
 		return nil, err
 	}
-	res.AlternativeNames = make([]*pb.AlternativeName, 0, len(alternativeNames))
-	for _, item := range alternativeNames {
-		res.AlternativeNames = append(res.AlternativeNames, item.Item)
-	}
+	res.AlternativeNames = alternativeNames
 
 	ArtworkIds := make([]uint64, 0, len(game.Artworks))
 	for _, g := range game.Artworks {
 		ArtworkIds = append(ArtworkIds, g.Id)
 	}
-	artworks, err := GetItemsByIGDBIDs[pb.Artwork](endpoint.EPArtworks, ArtworkIds)
+	artworks, err := GetItemsByIds[pb.Artwork](endpoint.EPArtworks, ArtworkIds)
 	if err != nil {
 		return nil, err
 	}
-	res.Artworks = make([]*pb.Artwork, 0, len(artworks))
-	for _, item := range artworks {
-		res.Artworks = append(res.Artworks, item.Item)
-	}
+	res.Artworks = artworks
 
 	bundlesIds := make([]uint64, 0, len(game.Bundles))
 	for _, g := range game.Bundles {
@@ -112,12 +100,12 @@ func ConvertGame(game *pb.Game) (*model.Game, error) {
 
 	if game.Cover != nil {
 		coverId := game.Cover.Id
-		cover, err := GetItemByIGDBID[pb.Cover](endpoint.EPCovers, coverId)
+		cover, err := GetItemById[pb.Cover](endpoint.EPCovers, coverId)
 		if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, err
 		}
 		if cover != nil {
-			res.Cover = cover.Item
+			res.Cover = cover
 		}
 	}
 
@@ -139,14 +127,11 @@ func ConvertGame(game *pb.Game) (*model.Game, error) {
 	for _, g := range game.ExternalGames {
 		externalGameIds = append(externalGameIds, g.Id)
 	}
-	externalGames, err := GetItemsByIGDBIDs[pb.ExternalGame](endpoint.EPExternalGames, externalGameIds)
+	externalGames, err := GetItemsByIds[pb.ExternalGame](endpoint.EPExternalGames, externalGameIds)
 	if err != nil {
 		return nil, err
 	}
-	res.ExternalGames = make([]*pb.ExternalGame, 0, len(externalGames))
-	for _, item := range externalGames {
-		res.ExternalGames = append(res.ExternalGames, item.Item)
-	}
+	res.ExternalGames = externalGames
 
 	res.FirstReleaseDate = game.FirstReleaseDate
 
@@ -154,12 +139,12 @@ func ConvertGame(game *pb.Game) (*model.Game, error) {
 
 	if game.Franchise != nil {
 		franchiseId := game.Franchise.Id
-		franchise, err := GetItemByIGDBID[pb.Franchise](endpoint.EPFranchises, franchiseId)
+		franchise, err := GetItemById[pb.Franchise](endpoint.EPFranchises, franchiseId)
 		if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, err
 		}
 		if franchise != nil {
-			res.Franchise = franchise.Item
+			res.Franchise = franchise
 		}
 	}
 
@@ -167,53 +152,41 @@ func ConvertGame(game *pb.Game) (*model.Game, error) {
 	for _, g := range game.Franchises {
 		franchiseIds = append(franchiseIds, g.Id)
 	}
-	franchises, err := GetItemsByIGDBIDs[pb.Franchise](endpoint.EPFranchises, franchiseIds)
+	franchises, err := GetItemsByIds[pb.Franchise](endpoint.EPFranchises, franchiseIds)
 	if err != nil {
 		return nil, err
 	}
-	res.Franchises = make([]*pb.Franchise, 0, len(franchises))
-	for _, item := range franchises {
-		res.Franchises = append(res.Franchises, item.Item)
-	}
+	res.Franchises = franchises
 
 	gameEngineIds := make([]uint64, 0, len(game.GameEngines))
 	for _, g := range game.GameEngines {
 		gameEngineIds = append(gameEngineIds, g.Id)
 	}
-	gameEngines, err := GetItemsByIGDBIDs[pb.GameEngine](endpoint.EPGameEngines, gameEngineIds)
+	gameEngines, err := GetItemsByIds[pb.GameEngine](endpoint.EPGameEngines, gameEngineIds)
 	if err != nil {
 		return nil, err
 	}
-	res.GameEngines = make([]*pb.GameEngine, 0, len(gameEngines))
-	for _, item := range gameEngines {
-		res.GameEngines = append(res.GameEngines, item.Item)
-	}
+	res.GameEngines = gameEngines
 
 	gameModeIds := make([]uint64, 0, len(game.GameModes))
 	for _, g := range game.GameModes {
 		gameModeIds = append(gameModeIds, g.Id)
 	}
-	gameModes, err := GetItemsByIGDBIDs[pb.GameMode](endpoint.EPGameModes, gameModeIds)
+	gameModes, err := GetItemsByIds[pb.GameMode](endpoint.EPGameModes, gameModeIds)
 	if err != nil {
 		return nil, err
 	}
-	res.GameModes = make([]*pb.GameMode, 0, len(gameModes))
-	for _, item := range gameModes {
-		res.GameModes = append(res.GameModes, item.Item)
-	}
+	res.GameModes = gameModes
 
 	genreIds := make([]uint64, 0, len(game.Genres))
 	for _, g := range game.Genres {
 		genreIds = append(genreIds, g.Id)
 	}
-	genres, err := GetItemsByIGDBIDs[pb.Genre](endpoint.EPGenres, genreIds)
+	genres, err := GetItemsByIds[pb.Genre](endpoint.EPGenres, genreIds)
 	if err != nil {
 		return nil, err
 	}
-	res.Genres = make([]*pb.Genre, 0, len(genres))
-	for _, item := range genres {
-		res.Genres = append(res.Genres, item.Item)
-	}
+	res.Genres = genres
 
 	res.Hypes = game.Hypes
 
@@ -221,40 +194,31 @@ func ConvertGame(game *pb.Game) (*model.Game, error) {
 	for _, g := range game.InvolvedCompanies {
 		involvedCompanyIds = append(involvedCompanyIds, g.Id)
 	}
-	involvedCompanies, err := GetItemsByIGDBIDs[pb.InvolvedCompany](endpoint.EPInvolvedCompanies, involvedCompanyIds)
+	involvedCompanies, err := GetItemsByIds[pb.InvolvedCompany](endpoint.EPInvolvedCompanies, involvedCompanyIds)
 	if err != nil {
 		return nil, err
 	}
-	res.InvolvedCompanies = make([]*pb.InvolvedCompany, 0, len(involvedCompanies))
-	for _, item := range involvedCompanies {
-		res.InvolvedCompanies = append(res.InvolvedCompanies, item.Item)
-	}
+	res.InvolvedCompanies = involvedCompanies
 
 	keywordIds := make([]uint64, 0, len(game.Keywords))
 	for _, g := range game.Keywords {
 		keywordIds = append(keywordIds, g.Id)
 	}
-	keyword, err := GetItemsByIGDBIDs[pb.Keyword](endpoint.EPKeywords, keywordIds)
+	keyword, err := GetItemsByIds[pb.Keyword](endpoint.EPKeywords, keywordIds)
 	if err != nil {
 		return nil, err
 	}
-	res.Keywords = make([]*pb.Keyword, 0, len(keyword))
-	for _, item := range keyword {
-		res.Keywords = append(res.Keywords, item.Item)
-	}
+	res.Keywords = keyword
 
 	multiplayerModeIds := make([]uint64, 0, len(game.MultiplayerModes))
 	for _, g := range game.MultiplayerModes {
 		multiplayerModeIds = append(multiplayerModeIds, g.Id)
 	}
-	multiplayerModes, err := GetItemsByIGDBIDs[pb.MultiplayerMode](endpoint.EPMultiplayerModes, multiplayerModeIds)
+	multiplayerModes, err := GetItemsByIds[pb.MultiplayerMode](endpoint.EPMultiplayerModes, multiplayerModeIds)
 	if err != nil {
 		return nil, err
 	}
-	res.MultiplayerModes = make([]*pb.MultiplayerMode, 0, len(multiplayerModes))
-	for _, item := range multiplayerModes {
-		res.MultiplayerModes = append(res.MultiplayerModes, item.Item)
-	}
+	res.MultiplayerModes = multiplayerModes
 
 	res.Name = game.Name
 
@@ -266,27 +230,21 @@ func ConvertGame(game *pb.Game) (*model.Game, error) {
 	for _, g := range game.Platforms {
 		platformIds = append(platformIds, g.Id)
 	}
-	platforms, err := GetItemsByIGDBIDs[pb.Platform](endpoint.EPPlatforms, platformIds)
+	platforms, err := GetItemsByIds[pb.Platform](endpoint.EPPlatforms, platformIds)
 	if err != nil {
 		return nil, err
 	}
-	res.Platforms = make([]*pb.Platform, 0, len(platforms))
-	for _, item := range platforms {
-		res.Platforms = append(res.Platforms, item.Item)
-	}
+	res.Platforms = platforms
 
 	playerPerspectiveIds := make([]uint64, 0, len(game.PlayerPerspectives))
 	for _, g := range game.PlayerPerspectives {
 		playerPerspectiveIds = append(playerPerspectiveIds, g.Id)
 	}
-	playerPerspectives, err := GetItemsByIGDBIDs[pb.PlayerPerspective](endpoint.EPPlayerPerspectives, playerPerspectiveIds)
+	playerPerspectives, err := GetItemsByIds[pb.PlayerPerspective](endpoint.EPPlayerPerspectives, playerPerspectiveIds)
 	if err != nil {
 		return nil, err
 	}
-	res.PlayerPerspectives = make([]*pb.PlayerPerspective, 0, len(playerPerspectives))
-	for _, item := range playerPerspectives {
-		res.PlayerPerspectives = append(res.PlayerPerspectives, item.Item)
-	}
+	res.PlayerPerspectives = playerPerspectives
 
 	res.Rating = game.Rating
 	res.RatingCount = game.RatingCount
@@ -295,27 +253,21 @@ func ConvertGame(game *pb.Game) (*model.Game, error) {
 	for _, g := range game.ReleaseDates {
 		releaseDateIds = append(releaseDateIds, g.Id)
 	}
-	releaseDates, err := GetItemsByIGDBIDs[pb.ReleaseDate](endpoint.EPReleaseDates, releaseDateIds)
+	releaseDates, err := GetItemsByIds[pb.ReleaseDate](endpoint.EPReleaseDates, releaseDateIds)
 	if err != nil {
 		return nil, err
 	}
-	res.ReleaseDates = make([]*pb.ReleaseDate, 0, len(releaseDates))
-	for _, item := range releaseDates {
-		res.ReleaseDates = append(res.ReleaseDates, item.Item)
-	}
+	res.ReleaseDates = releaseDates
 
 	screenshotIds := make([]uint64, 0, len(game.Screenshots))
 	for _, g := range game.Screenshots {
 		screenshotIds = append(screenshotIds, g.Id)
 	}
-	screenshots, err := GetItemsByIGDBIDs[pb.Screenshot](endpoint.EPScreenshots, screenshotIds)
+	screenshots, err := GetItemsByIds[pb.Screenshot](endpoint.EPScreenshots, screenshotIds)
 	if err != nil {
 		return nil, err
 	}
-	res.Screenshots = make([]*pb.Screenshot, 0, len(screenshots))
-	for _, item := range screenshots {
-		res.Screenshots = append(res.Screenshots, item.Item)
-	}
+	res.Screenshots = screenshots
 
 	similarGamesIds := make([]uint64, 0, len(game.SimilarGames))
 	for _, g := range game.SimilarGames {
@@ -340,14 +292,11 @@ func ConvertGame(game *pb.Game) (*model.Game, error) {
 	for _, g := range game.Themes {
 		themeIds = append(themeIds, g.Id)
 	}
-	themes, err := GetItemsByIGDBIDs[pb.Theme](endpoint.EPThemes, themeIds)
+	themes, err := GetItemsByIds[pb.Theme](endpoint.EPThemes, themeIds)
 	if err != nil {
 		return nil, err
 	}
-	res.Themes = make([]*pb.Theme, 0, len(themes))
-	for _, item := range themes {
-		res.Themes = append(res.Themes, item.Item)
-	}
+	res.Themes = themes
 
 	res.TotalRating = game.TotalRating
 	res.TotalRatingCount = game.TotalRatingCount
@@ -366,27 +315,21 @@ func ConvertGame(game *pb.Game) (*model.Game, error) {
 	for _, g := range game.Videos {
 		videoIds = append(videoIds, g.Id)
 	}
-	videos, err := GetItemsByIGDBIDs[pb.GameVideo](endpoint.EPGameVideos, videoIds)
+	videos, err := GetItemsByIds[pb.GameVideo](endpoint.EPGameVideos, videoIds)
 	if err != nil {
 		return nil, err
 	}
-	res.Videos = make([]*pb.GameVideo, 0, len(videos))
-	for _, item := range videos {
-		res.Videos = append(res.Videos, item.Item)
-	}
+	res.Videos = videos
 
 	websiteIds := make([]uint64, 0, len(game.Websites))
 	for _, g := range game.Websites {
 		websiteIds = append(websiteIds, g.Id)
 	}
-	websites, err := GetItemsByIGDBIDs[pb.Website](endpoint.EPWebsites, websiteIds)
+	websites, err := GetItemsByIds[pb.Website](endpoint.EPWebsites, websiteIds)
 	if err != nil {
 		return nil, err
 	}
-	res.Websites = make([]*pb.Website, 0, len(websites))
-	for _, item := range websites {
-		res.Websites = append(res.Websites, item.Item)
-	}
+	res.Websites = websites
 
 	remakesIds := make([]uint64, 0, len(game.Remakes))
 	for _, g := range game.Remakes {
@@ -422,40 +365,31 @@ func ConvertGame(game *pb.Game) (*model.Game, error) {
 	for _, g := range game.LanguageSupports {
 		languageSupportIds = append(languageSupportIds, g.Id)
 	}
-	languageSupports, err := GetItemsByIGDBIDs[pb.LanguageSupport](endpoint.EPLanguageSupports, languageSupportIds)
+	languageSupports, err := GetItemsByIds[pb.LanguageSupport](endpoint.EPLanguageSupports, languageSupportIds)
 	if err != nil {
 		return nil, err
 	}
-	res.LanguageSupports = make([]*pb.LanguageSupport, 0, len(languageSupports))
-	for _, item := range languageSupports {
-		res.LanguageSupports = append(res.LanguageSupports, item.Item)
-	}
+	res.LanguageSupports = languageSupports
 
 	gameLocalizationIds := make([]uint64, 0, len(game.GameLocalizations))
 	for _, g := range game.GameLocalizations {
 		gameLocalizationIds = append(gameLocalizationIds, g.Id)
 	}
-	gameLocalizations, err := GetItemsByIGDBIDs[pb.GameLocalization](endpoint.EPGameLocalizations, gameLocalizationIds)
+	gameLocalizations, err := GetItemsByIds[pb.GameLocalization](endpoint.EPGameLocalizations, gameLocalizationIds)
 	if err != nil {
 		return nil, err
 	}
-	res.GameLocalizations = make([]*pb.GameLocalization, 0, len(gameLocalizations))
-	for _, item := range gameLocalizations {
-		res.GameLocalizations = append(res.GameLocalizations, item.Item)
-	}
+	res.GameLocalizations = gameLocalizations
 
 	collectionIds := make([]uint64, 0, len(game.Collections))
 	for _, g := range game.Collections {
 		collectionIds = append(collectionIds, g.Id)
 	}
-	collections, err := GetItemsByIGDBIDs[pb.Collection](endpoint.EPCollections, collectionIds)
+	collections, err := GetItemsByIds[pb.Collection](endpoint.EPCollections, collectionIds)
 	if err != nil {
 		return nil, err
 	}
-	res.Collections = make([]*pb.Collection, 0, len(collections))
-	for _, item := range collections {
-		res.Collections = append(res.Collections, item.Item)
-	}
+	res.Collections = collections
 
 	res.GameStatus = nil
 	res.GameType = nil
@@ -463,13 +397,13 @@ func ConvertGame(game *pb.Game) (*model.Game, error) {
 	res.AllNames = make([]string, 0, len(alternativeNames)+1)
 	res.AllNames = append(res.AllNames, game.Name)
 	for _, item := range alternativeNames {
-		res.AllNames = append(res.AllNames, item.Item.Name)
+		res.AllNames = append(res.AllNames, item.Name)
 	}
 
 	return res, nil
 }
 
-func GetGameByIGDBID(id uint64) (*model.Game, error) {
+func GetGameById(id uint64) (*model.Game, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -479,4 +413,34 @@ func GetGameByIGDBID(id uint64) (*model.Game, error) {
 		return nil, fmt.Errorf("failed to get game: %w", err)
 	}
 	return &game, nil
+}
+
+func GetAllItemsIDs[T any](e endpoint.Name) ([]uint64, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var ids []uint64
+	coll := GetInstance().Collections[e]
+	if coll == nil {
+		return nil, fmt.Errorf("collection not found")
+	}
+	cursor, err := coll.Find(ctx, bson.M{}, options.Find().SetProjection(bson.M{"id": 1}))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get items: %w", err)
+	}
+
+	type IdGetter interface {
+		GetId() uint64
+	}
+
+	for cursor.Next(ctx) {
+		var item *T
+		err := cursor.Decode(&item)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode item: %w", err)
+		}
+		ids = append(ids, any(item).(IdGetter).GetId())
+	}
+
+	return ids, nil
 }

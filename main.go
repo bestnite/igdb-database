@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"flag"
 	"igdb-database/collector"
 	"igdb-database/config"
@@ -13,7 +12,6 @@ import (
 	"github.com/bestnite/go-igdb"
 	"github.com/bestnite/go-igdb/endpoint"
 	pb "github.com/bestnite/go-igdb/proto"
-	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
 var (
@@ -22,6 +20,7 @@ var (
 	enableReFetch     = flag.Bool("re-fetch", false, "re fetch data even if collection is not empty")
 	enableReAggregate = flag.Bool("re-aggregate", false, "re aggregate games even if game_details is not empty")
 	enableWebhook     = flag.Bool("webhook", true, "start webhook server")
+	onlyRefetchGames  = flag.Bool("only-refetch-games", false, "only refetch games")
 )
 
 func main() {
@@ -34,6 +33,8 @@ func main() {
 		allFetchAndStore(client)
 		log.Printf("data fetched")
 	}
+
+	Count()
 
 	if *enableAggregate || *enableReAggregate {
 		log.Printf("aggregating games")
@@ -48,10 +49,11 @@ func main() {
 }
 
 func aggregateGames() {
-	total, err := db.CountItems(endpoint.EPGames)
+	total, err := db.EstimatedDocumentCount(endpoint.EPGames)
 	if err != nil {
 		log.Fatalf("failed to count games: %v", err)
 	}
+	log.Printf("games length: %d", total)
 
 	finished := int64(0)
 	wg := sync.WaitGroup{}
@@ -71,38 +73,27 @@ func aggregateGames() {
 			if err != nil {
 				log.Fatalf("failed to get games: %v", err)
 			}
-			games := make([]*pb.Game, 0, len(items))
-			for _, item := range items {
-				games = append(games, item.Item)
-			}
-			isAggregated := make(map[uint64]bool, len(games))
+			isAggregated := make(map[uint64]bool, len(items))
 			if !*enableReAggregate {
-				isAggregated, err = db.IsGamesAggregated(games)
+				isAggregated, err = db.IsGamesAggregated(items)
 				if err != nil {
 					log.Fatalf("failed to check if games are aggregated: %v", err)
 				}
 			} else {
-				for _, game := range games {
+				for _, game := range items {
 					isAggregated[game.Id] = false
 				}
 			}
 			for _, item := range items {
-				if isAggregated[item.Item.Id] {
+				if isAggregated[item.Id] {
 					p := atomic.AddInt64(&finished, 1)
 					log.Printf("game aggregated %d/%d", p, total)
 					continue
 				}
 
-				game, err := db.ConvertGame(item.Item)
+				game, err := db.ConvertGame(item)
 				if err != nil {
 					log.Fatalf("failed to convert game: %v", err)
-				}
-				oldGame, err := db.GetGameByIGDBID(item.Item.Id)
-				if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
-					log.Fatalf("failed to get game: %v", err)
-				}
-				if oldGame != nil {
-					game.MId = oldGame.MId
 				}
 
 				err = db.SaveGame(game)
@@ -120,14 +111,76 @@ func aggregateGames() {
 func fetchAndStore[T any](
 	e endpoint.EntityEndpoint[T],
 ) {
-	if count, err := db.CountItems(e.GetEndpointName()); (err == nil && count == 0) || *enableReFetch {
+	if count, err := db.EstimatedDocumentCount(e.GetEndpointName()); (err == nil && count == 0) || *enableReFetch {
 		collector.FetchAndStore(e)
 	} else if err != nil {
 		log.Printf("failed to count items: %v", err)
 	}
 }
 
+func Count() {
+	ids, err := db.GetAllItemsIDs[pb.Theme](endpoint.EPThemes)
+	if err != nil {
+		log.Fatalf("failed to get all items ids %s: %v", endpoint.EPThemes, err)
+	}
+
+	concurrence := make(chan struct{}, 10)
+	defer close(concurrence)
+	wg := sync.WaitGroup{}
+
+	for _, id := range ids {
+		concurrence <- struct{}{}
+		wg.Add(1)
+		go func(id uint64) {
+			defer func() {
+				<-concurrence
+				wg.Done()
+			}()
+			count, err := db.CountTheme(id)
+			if err != nil {
+				log.Fatalf("failed to count theme: %v", err)
+			}
+			log.Printf("theme %d count: %d", id, count)
+			err = db.SaveCount(&db.Count{Theme: id, Count: count})
+			if err != nil {
+				log.Fatalf("failed to save count: %v", err)
+			}
+		}(id)
+	}
+
+	ids, err = db.GetAllItemsIDs[pb.Genre](endpoint.EPGenres)
+	if err != nil {
+		log.Fatalf("failed to get all items ids %s: %v", endpoint.EPGenres, err)
+	}
+	for _, id := range ids {
+		concurrence <- struct{}{}
+		wg.Add(1)
+		go func(id uint64) {
+			defer func() {
+				<-concurrence
+				wg.Done()
+			}()
+			count, err := db.CountGenre(id)
+			if err != nil {
+				log.Fatalf("failed to count genre: %v", err)
+			}
+			log.Printf("genre %d count: %d", id, count)
+			err = db.SaveCount(&db.Count{Genre: id, Count: count})
+			if err != nil {
+				log.Fatalf("failed to save count: %v", err)
+			}
+		}(id)
+	}
+
+	wg.Wait()
+}
+
 func allFetchAndStore(client *igdb.Client) {
+	if *onlyRefetchGames {
+		fetchAndStore(client.Games)
+		return
+	}
+
 	fetchAndStore(client.AgeRatingCategories)
 	fetchAndStore(client.AgeRatingContentDescriptions)
 	fetchAndStore(client.AgeRatingContentDescriptionsV2)

@@ -2,7 +2,6 @@ package model
 
 import (
 	pb "github.com/bestnite/go-igdb/proto"
-	"go.mongodb.org/mongo-driver/v2/bson"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -10,7 +9,6 @@ type GameIds []uint64
 type GameId uint64
 
 type Game struct {
-	MId                   bson.ObjectID           `json:"_id,omitempty"`
 	Id                    uint64                  `json:"id,omitempty"`
 	AgeRatings            []*pb.AgeRating         `json:"age_ratings,omitempty"`
 	AggregatedRating      float64                 `json:"aggregated_rating,omitempty"`
