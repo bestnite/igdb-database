@@ -123,7 +123,11 @@ func StartWebhookServer(client *igdb.Client) {
 		for _, ep := range enabledEndpoint {
 			Url := baseUrl.JoinPath(fmt.Sprintf("/webhook/%s", string(ep)))
 			log.Printf("registering webhook \"%s\" to \"%s\"", ep, Url.String())
-			err = client.Webhooks.Register(ep, config.C().WebhookSecret, Url.String())
+			_, err = client.Webhooks.Register(ep, config.C().WebhookSecret, Url.String(), endpoint.WebhookMethodCreate)
+			if err != nil {
+				log.Fatalf("failed to register webhook \"%s\": %v", ep, err)
+			}
+			_, err = client.Webhooks.Register(ep, config.C().WebhookSecret, Url.String(), endpoint.WebhookMethodUpdate)
 			if err != nil {
 				log.Fatalf("failed to register webhook \"%s\": %v", ep, err)
 			}
