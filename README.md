@@ -34,7 +34,7 @@ Create a `config.json` file in the root directory with the following structure:
     "client_secret": "your_client_secret"
   },
   "webhook_secret": "your_webhook_secret",
-  "extral_url": "https://your-webhook-url.com"
+  "external_url": "https://your-webhook-url.com"
 }
 ```
 
