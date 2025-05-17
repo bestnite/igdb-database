@@ -24,6 +24,7 @@ var (
 )
 
 func main() {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	flag.Parse()
 
 	client := igdb.New(config.C().Twitch.ClientID, config.C().Twitch.ClientSecret)
