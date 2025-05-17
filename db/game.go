@@ -410,8 +410,8 @@ func ConvertGame(game *pb.Game) (*model.Game, error) {
 	}
 	res.Collections = collections
 
-	res.GameStatus = nil
-	res.GameType = nil
+	res.GameStatus = game.GameStatus
+	res.GameType = game.GameType
 
 	res.AllNames = make([]string, 0, len(alternativeNames)+1)
 	res.AllNames = append(res.AllNames, game.Name)
