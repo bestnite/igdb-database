@@ -36,7 +36,7 @@ func main() {
 
 	if *enableAggregate || *enableReAggregate {
 		log.Printf("aggregating games")
-		aggregateGames()
+		aggregateGames(client)
 		log.Printf("games aggregated")
 	}
 
@@ -46,7 +46,7 @@ func main() {
 	}
 }
 
-func aggregateGames() {
+func aggregateGames(client *igdb.Client) {
 	total, err := db.EstimatedDocumentCount(endpoint.EPGames)
 	if err != nil {
 		log.Fatalf("failed to count games: %v", err)
@@ -89,7 +89,7 @@ func aggregateGames() {
 					continue
 				}
 
-				game, err := db.ConvertGame(item)
+				game, err := db.ConvertGame(item, client)
 				if err != nil {
 					log.Fatalf("failed to convert game: %v", err)
 				}

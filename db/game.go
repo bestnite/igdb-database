@@ -7,6 +7,7 @@ import (
 	"igdb-database/model"
 	"time"
 
+	"github.com/bestnite/go-igdb"
 	"github.com/bestnite/go-igdb/endpoint"
 	pb "github.com/bestnite/go-igdb/proto"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -69,7 +70,7 @@ func SaveGames(games []*model.Game) error {
 	return nil
 }
 
-func ConvertGame(game *pb.Game) (*model.Game, error) {
+func ConvertGame(game *pb.Game, client *igdb.Client) (*model.Game, error) {
 	res := &model.Game{}
 
 	if game == nil {
@@ -120,8 +121,15 @@ func ConvertGame(game *pb.Game) (*model.Game, error) {
 	if game.Cover != nil {
 		coverId := game.Cover.Id
 		cover, err := GetItemById[pb.Cover](endpoint.EPCovers, coverId)
-		if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, err
+		if err != nil {
+			if errors.Is(err, mongo.ErrNoDocuments) {
+				cover, err = client.Covers.GetByID(coverId)
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				return nil, err
+			}
 		}
 		if cover != nil {
 			res.Cover = cover

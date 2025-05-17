@@ -125,6 +125,14 @@ func (m *MongoDB) createIndex() {
 		if err != nil {
 			log.Printf("failed to create index id for %s: %v", string(e), err)
 		}
+		_, err = m.Collections[e].Indexes().CreateOne(ctx, mongo.IndexModel{
+			Keys: bson.D{
+				{Key: "updated_at", Value: 1},
+			},
+		})
+		if err != nil {
+			log.Printf("failed to create index id for %s: %v", string(e), err)
+		}
 	}
 
 	_, err := m.GameCollection.Indexes().CreateOne(ctx, mongo.IndexModel{
@@ -273,6 +281,28 @@ func GetItemsPaginated[T any](e endpoint.Name, skip int64, limit int64) ([]*T, e
 	err = cursor.All(ctx, &items)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get items %s: %w", string(e), err)
+	}
+	return items, nil
+}
+
+func GetItemsSorted[T any](e endpoint.Name, limit int, sort bson.M) ([]*T, error) {
+	coll := GetInstance().Collections[e]
+	if coll == nil {
+		return nil, fmt.Errorf("collection not found")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second+time.Duration(limit*200)*time.Millisecond)
+	defer cancel()
+	opts := options.Find().SetLimit(int64(limit)).SetSort(sort)
+	cursor, err := coll.Find(ctx, bson.M{}, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get items: %w", err)
+	}
+
+	var items []*T
+	err = cursor.All(ctx, &items)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get items: %w", err)
 	}
 	return items, nil
 }
