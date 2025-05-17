@@ -70,6 +70,10 @@ func SaveGames(games []*model.Game) error {
 	return nil
 }
 
+type IdGetter interface {
+	GetId() uint64
+}
+
 func ConvertGame(game *pb.Game, client *igdb.Client) (*model.Game, error) {
 	res := &model.Game{}
 
@@ -87,6 +91,30 @@ func ConvertGame(game *pb.Game, client *igdb.Client) (*model.Game, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(ageRatings) != len(ageRatingsIds) {
+		missingIds := make([]uint64, 0, len(ageRatingsIds)-len(ageRatings))
+		for _, id := range ageRatingsIds {
+			found := false
+			for _, item := range ageRatings {
+				if item.GetId() == id {
+					found = true
+					break
+				}
+			}
+			if !found {
+				missingIds = append(missingIds, id)
+			}
+		}
+		ageRatings, err = client.AgeRatings.GetByIDs(missingIds)
+		if err != nil {
+			return nil, err
+		}
+		ageRatings = append(ageRatings, ageRatings...)
+		err = SaveItems(endpoint.EPAgeRatings, ageRatings)
+		if err != nil {
+			return nil, err
+		}
+	}
 	res.AgeRatings = ageRatings
 
 	res.AggregatedRating = game.AggregatedRating
@@ -100,6 +128,30 @@ func ConvertGame(game *pb.Game, client *igdb.Client) (*model.Game, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(alternativeNames) != len(alternativeNameIds) {
+		missingIds := make([]uint64, 0, len(alternativeNameIds)-len(alternativeNames))
+		for _, id := range alternativeNameIds {
+			found := false
+			for _, item := range alternativeNames {
+				if item.GetId() == id {
+					found = true
+					break
+				}
+			}
+			if !found {
+				missingIds = append(missingIds, id)
+			}
+		}
+		alternativeNames, err = client.AlternativeNames.GetByIDs(missingIds)
+		if err != nil {
+			return nil, err
+		}
+		alternativeNames = append(alternativeNames, alternativeNames...)
+		err = SaveItems(endpoint.EPAlternativeNames, alternativeNames)
+		if err != nil {
+			return nil, err
+		}
+	}
 	res.AlternativeNames = alternativeNames
 
 	ArtworkIds := make([]uint64, 0, len(game.Artworks))
@@ -109,6 +161,30 @@ func ConvertGame(game *pb.Game, client *igdb.Client) (*model.Game, error) {
 	artworks, err := GetItemsByIds[pb.Artwork](endpoint.EPArtworks, ArtworkIds)
 	if err != nil {
 		return nil, err
+	}
+	if len(artworks) != len(ArtworkIds) {
+		missingIds := make([]uint64, 0, len(ArtworkIds)-len(artworks))
+		for _, id := range ArtworkIds {
+			found := false
+			for _, item := range artworks {
+				if item.GetId() == id {
+					found = true
+					break
+				}
+			}
+			if !found {
+				missingIds = append(missingIds, id)
+			}
+		}
+		artworks, err = client.Artworks.GetByIDs(missingIds)
+		if err != nil {
+			return nil, err
+		}
+		artworks = append(artworks, artworks...)
+		err = SaveItems(endpoint.EPArtworks, artworks)
+		if err != nil {
+			return nil, err
+		}
 	}
 	res.Artworks = artworks
 
@@ -158,6 +234,30 @@ func ConvertGame(game *pb.Game, client *igdb.Client) (*model.Game, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(externalGames) != len(externalGameIds) {
+		missingIds := make([]uint64, 0, len(externalGameIds)-len(externalGames))
+		for _, id := range externalGameIds {
+			found := false
+			for _, item := range externalGames {
+				if item.GetId() == id {
+					found = true
+					break
+				}
+			}
+			if !found {
+				missingIds = append(missingIds, id)
+			}
+		}
+		externalGames, err = client.ExternalGames.GetByIDs(missingIds)
+		if err != nil {
+			return nil, err
+		}
+		externalGames = append(externalGames, externalGames...)
+		err = SaveItems(endpoint.EPExternalGames, externalGames)
+		if err != nil {
+			return nil, err
+		}
+	}
 	res.ExternalGames = externalGames
 
 	res.FirstReleaseDate = game.FirstReleaseDate
@@ -167,8 +267,19 @@ func ConvertGame(game *pb.Game, client *igdb.Client) (*model.Game, error) {
 	if game.Franchise != nil {
 		franchiseId := game.Franchise.Id
 		franchise, err := GetItemById[pb.Franchise](endpoint.EPFranchises, franchiseId)
-		if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, err
+		if err != nil {
+			if errors.Is(err, mongo.ErrNoDocuments) {
+				franchise, err = client.Franchises.GetByID(franchiseId)
+				if err != nil {
+					return nil, err
+				}
+				err = SaveItem(endpoint.EPFranchises, franchise)
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				return nil, err
+			}
 		}
 		if franchise != nil {
 			res.Franchise = franchise
@@ -183,6 +294,30 @@ func ConvertGame(game *pb.Game, client *igdb.Client) (*model.Game, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(franchises) != len(franchiseIds) {
+		missingIds := make([]uint64, 0, len(franchiseIds)-len(franchises))
+		for _, id := range franchiseIds {
+			found := false
+			for _, item := range franchises {
+				if item.GetId() == id {
+					found = true
+					break
+				}
+			}
+			if !found {
+				missingIds = append(missingIds, id)
+			}
+		}
+		franchises, err = client.Franchises.GetByIDs(missingIds)
+		if err != nil {
+			return nil, err
+		}
+		franchises = append(franchises, franchises...)
+		err = SaveItems(endpoint.EPFranchises, franchises)
+		if err != nil {
+			return nil, err
+		}
+	}
 	res.Franchises = franchises
 
 	gameEngineIds := make([]uint64, 0, len(game.GameEngines))
@@ -192,6 +327,30 @@ func ConvertGame(game *pb.Game, client *igdb.Client) (*model.Game, error) {
 	gameEngines, err := GetItemsByIds[pb.GameEngine](endpoint.EPGameEngines, gameEngineIds)
 	if err != nil {
 		return nil, err
+	}
+	if len(gameEngines) != len(gameEngineIds) {
+		missingIds := make([]uint64, 0, len(gameEngineIds)-len(gameEngines))
+		for _, id := range gameEngineIds {
+			found := false
+			for _, item := range gameEngines {
+				if item.GetId() == id {
+					found = true
+					break
+				}
+			}
+			if !found {
+				missingIds = append(missingIds, id)
+			}
+		}
+		gameEngines, err = client.GameEngines.GetByIDs(missingIds)
+		if err != nil {
+			return nil, err
+		}
+		gameEngines = append(gameEngines, gameEngines...)
+		err = SaveItems(endpoint.EPGameEngines, gameEngines)
+		if err != nil {
+			return nil, err
+		}
 	}
 	res.GameEngines = gameEngines
 
@@ -203,6 +362,30 @@ func ConvertGame(game *pb.Game, client *igdb.Client) (*model.Game, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(gameModes) != len(gameModeIds) {
+		missingIds := make([]uint64, 0, len(gameModeIds)-len(gameModes))
+		for _, id := range gameModeIds {
+			found := false
+			for _, item := range gameModes {
+				if item.GetId() == id {
+					found = true
+					break
+				}
+			}
+			if !found {
+				missingIds = append(missingIds, id)
+			}
+		}
+		gameModes, err = client.GameModes.GetByIDs(missingIds)
+		if err != nil {
+			return nil, err
+		}
+		gameModes = append(gameModes, gameModes...)
+		err = SaveItems(endpoint.EPGameModes, gameModes)
+		if err != nil {
+			return nil, err
+		}
+	}
 	res.GameModes = gameModes
 
 	genreIds := make([]uint64, 0, len(game.Genres))
@@ -212,6 +395,30 @@ func ConvertGame(game *pb.Game, client *igdb.Client) (*model.Game, error) {
 	genres, err := GetItemsByIds[pb.Genre](endpoint.EPGenres, genreIds)
 	if err != nil {
 		return nil, err
+	}
+	if len(genres) != len(genreIds) {
+		missingIds := make([]uint64, 0, len(genreIds)-len(genres))
+		for _, id := range genreIds {
+			found := false
+			for _, item := range genres {
+				if item.GetId() == id {
+					found = true
+					break
+				}
+			}
+			if !found {
+				missingIds = append(missingIds, id)
+			}
+		}
+		genres, err = client.Genres.GetByIDs(missingIds)
+		if err != nil {
+			return nil, err
+		}
+		genres = append(genres, genres...)
+		err = SaveItems(endpoint.EPGenres, genres)
+		if err != nil {
+			return nil, err
+		}
 	}
 	res.Genres = genres
 
@@ -225,6 +432,30 @@ func ConvertGame(game *pb.Game, client *igdb.Client) (*model.Game, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(involvedCompanies) != len(involvedCompanyIds) {
+		missingIds := make([]uint64, 0, len(involvedCompanyIds)-len(involvedCompanies))
+		for _, id := range involvedCompanyIds {
+			found := false
+			for _, item := range involvedCompanies {
+				if item.GetId() == id {
+					found = true
+					break
+				}
+			}
+			if !found {
+				missingIds = append(missingIds, id)
+			}
+		}
+		involvedCompanies, err = client.InvolvedCompanies.GetByIDs(missingIds)
+		if err != nil {
+			return nil, err
+		}
+		involvedCompanies = append(involvedCompanies, involvedCompanies...)
+		err = SaveItems(endpoint.EPInvolvedCompanies, involvedCompanies)
+		if err != nil {
+			return nil, err
+		}
+	}
 	res.InvolvedCompanies = involvedCompanies
 
 	keywordIds := make([]uint64, 0, len(game.Keywords))
@@ -235,6 +466,30 @@ func ConvertGame(game *pb.Game, client *igdb.Client) (*model.Game, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(keyword) != len(keywordIds) {
+		missingIds := make([]uint64, 0, len(keywordIds)-len(keyword))
+		for _, id := range keywordIds {
+			found := false
+			for _, item := range keyword {
+				if item.GetId() == id {
+					found = true
+					break
+				}
+			}
+			if !found {
+				missingIds = append(missingIds, id)
+			}
+		}
+		keyword, err = client.Keywords.GetByIDs(missingIds)
+		if err != nil {
+			return nil, err
+		}
+		keyword = append(keyword, keyword...)
+		err = SaveItems(endpoint.EPKeywords, keyword)
+		if err != nil {
+			return nil, err
+		}
+	}
 	res.Keywords = keyword
 
 	multiplayerModeIds := make([]uint64, 0, len(game.MultiplayerModes))
@@ -244,6 +499,30 @@ func ConvertGame(game *pb.Game, client *igdb.Client) (*model.Game, error) {
 	multiplayerModes, err := GetItemsByIds[pb.MultiplayerMode](endpoint.EPMultiplayerModes, multiplayerModeIds)
 	if err != nil {
 		return nil, err
+	}
+	if len(multiplayerModes) != len(multiplayerModeIds) {
+		missingIds := make([]uint64, 0, len(multiplayerModeIds)-len(multiplayerModes))
+		for _, id := range multiplayerModeIds {
+			found := false
+			for _, item := range multiplayerModes {
+				if item.GetId() == id {
+					found = true
+					break
+				}
+			}
+			if !found {
+				missingIds = append(missingIds, id)
+			}
+		}
+		multiplayerModes, err = client.MultiplayerModes.GetByIDs(missingIds)
+		if err != nil {
+			return nil, err
+		}
+		multiplayerModes = append(multiplayerModes, multiplayerModes...)
+		err = SaveItems(endpoint.EPMultiplayerModes, multiplayerModes)
+		if err != nil {
+			return nil, err
+		}
 	}
 	res.MultiplayerModes = multiplayerModes
 
@@ -261,6 +540,30 @@ func ConvertGame(game *pb.Game, client *igdb.Client) (*model.Game, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(platforms) != len(platformIds) {
+		missingIds := make([]uint64, 0, len(platformIds)-len(platforms))
+		for _, id := range platformIds {
+			found := false
+			for _, item := range platforms {
+				if item.GetId() == id {
+					found = true
+					break
+				}
+			}
+			if !found {
+				missingIds = append(missingIds, id)
+			}
+		}
+		platforms, err = client.Platforms.GetByIDs(missingIds)
+		if err != nil {
+			return nil, err
+		}
+		platforms = append(platforms, platforms...)
+		err = SaveItems(endpoint.EPPlatforms, platforms)
+		if err != nil {
+			return nil, err
+		}
+	}
 	res.Platforms = platforms
 
 	playerPerspectiveIds := make([]uint64, 0, len(game.PlayerPerspectives))
@@ -270,6 +573,30 @@ func ConvertGame(game *pb.Game, client *igdb.Client) (*model.Game, error) {
 	playerPerspectives, err := GetItemsByIds[pb.PlayerPerspective](endpoint.EPPlayerPerspectives, playerPerspectiveIds)
 	if err != nil {
 		return nil, err
+	}
+	if len(playerPerspectives) != len(playerPerspectiveIds) {
+		missingIds := make([]uint64, 0, len(playerPerspectiveIds)-len(playerPerspectives))
+		for _, id := range playerPerspectiveIds {
+			found := false
+			for _, item := range playerPerspectives {
+				if item.GetId() == id {
+					found = true
+					break
+				}
+			}
+			if !found {
+				missingIds = append(missingIds, id)
+			}
+		}
+		playerPerspectives, err = client.PlayerPerspectives.GetByIDs(missingIds)
+		if err != nil {
+			return nil, err
+		}
+		playerPerspectives = append(playerPerspectives, playerPerspectives...)
+		err = SaveItems(endpoint.EPPlayerPerspectives, playerPerspectives)
+		if err != nil {
+			return nil, err
+		}
 	}
 	res.PlayerPerspectives = playerPerspectives
 
@@ -284,6 +611,30 @@ func ConvertGame(game *pb.Game, client *igdb.Client) (*model.Game, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(releaseDates) != len(releaseDateIds) {
+		missingIds := make([]uint64, 0, len(releaseDateIds)-len(releaseDates))
+		for _, id := range releaseDateIds {
+			found := false
+			for _, item := range releaseDates {
+				if item.GetId() == id {
+					found = true
+					break
+				}
+			}
+			if !found {
+				missingIds = append(missingIds, id)
+			}
+		}
+		releaseDates, err = client.ReleaseDates.GetByIDs(missingIds)
+		if err != nil {
+			return nil, err
+		}
+		releaseDates = append(releaseDates, releaseDates...)
+		err = SaveItems(endpoint.EPReleaseDates, releaseDates)
+		if err != nil {
+			return nil, err
+		}
+	}
 	res.ReleaseDates = releaseDates
 
 	screenshotIds := make([]uint64, 0, len(game.Screenshots))
@@ -293,6 +644,30 @@ func ConvertGame(game *pb.Game, client *igdb.Client) (*model.Game, error) {
 	screenshots, err := GetItemsByIds[pb.Screenshot](endpoint.EPScreenshots, screenshotIds)
 	if err != nil {
 		return nil, err
+	}
+	if len(screenshots) != len(screenshotIds) {
+		missingIds := make([]uint64, 0, len(screenshotIds)-len(screenshots))
+		for _, id := range screenshotIds {
+			found := false
+			for _, item := range screenshots {
+				if item.GetId() == id {
+					found = true
+					break
+				}
+			}
+			if !found {
+				missingIds = append(missingIds, id)
+			}
+		}
+		screenshots, err = client.Screenshots.GetByIDs(missingIds)
+		if err != nil {
+			return nil, err
+		}
+		screenshots = append(screenshots, screenshots...)
+		err = SaveItems(endpoint.EPScreenshots, screenshots)
+		if err != nil {
+			return nil, err
+		}
 	}
 	res.Screenshots = screenshots
 
@@ -323,6 +698,30 @@ func ConvertGame(game *pb.Game, client *igdb.Client) (*model.Game, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(themes) != len(themeIds) {
+		missingIds := make([]uint64, 0, len(themeIds)-len(themes))
+		for _, id := range themeIds {
+			found := false
+			for _, item := range themes {
+				if item.GetId() == id {
+					found = true
+					break
+				}
+			}
+			if !found {
+				missingIds = append(missingIds, id)
+			}
+		}
+		themes, err = client.Themes.GetByIDs(missingIds)
+		if err != nil {
+			return nil, err
+		}
+		themes = append(themes, themes...)
+		err = SaveItems(endpoint.EPThemes, themes)
+		if err != nil {
+			return nil, err
+		}
+	}
 	res.Themes = themes
 
 	res.TotalRating = game.TotalRating
@@ -346,6 +745,30 @@ func ConvertGame(game *pb.Game, client *igdb.Client) (*model.Game, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(videos) != len(videoIds) {
+		missingIds := make([]uint64, 0, len(videoIds)-len(videos))
+		for _, id := range videoIds {
+			found := false
+			for _, item := range videos {
+				if item.GetId() == id {
+					found = true
+					break
+				}
+			}
+			if !found {
+				missingIds = append(missingIds, id)
+			}
+		}
+		videos, err = client.GameVideos.GetByIDs(missingIds)
+		if err != nil {
+			return nil, err
+		}
+		videos = append(videos, videos...)
+		err = SaveItems(endpoint.EPGameVideos, videos)
+		if err != nil {
+			return nil, err
+		}
+	}
 	res.Videos = videos
 
 	websiteIds := make([]uint64, 0, len(game.Websites))
@@ -355,6 +778,30 @@ func ConvertGame(game *pb.Game, client *igdb.Client) (*model.Game, error) {
 	websites, err := GetItemsByIds[pb.Website](endpoint.EPWebsites, websiteIds)
 	if err != nil {
 		return nil, err
+	}
+	if len(websites) != len(websiteIds) {
+		missingIds := make([]uint64, 0, len(websiteIds)-len(websites))
+		for _, id := range websiteIds {
+			found := false
+			for _, item := range websites {
+				if item.GetId() == id {
+					found = true
+					break
+				}
+			}
+			if !found {
+				missingIds = append(missingIds, id)
+			}
+		}
+		websites, err = client.Websites.GetByIDs(missingIds)
+		if err != nil {
+			return nil, err
+		}
+		websites = append(websites, websites...)
+		err = SaveItems(endpoint.EPWebsites, websites)
+		if err != nil {
+			return nil, err
+		}
 	}
 	res.Websites = websites
 
@@ -396,6 +843,30 @@ func ConvertGame(game *pb.Game, client *igdb.Client) (*model.Game, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(languageSupports) != len(languageSupportIds) {
+		missingIds := make([]uint64, 0, len(languageSupportIds)-len(languageSupports))
+		for _, id := range languageSupportIds {
+			found := false
+			for _, item := range languageSupports {
+				if item.GetId() == id {
+					found = true
+					break
+				}
+			}
+			if !found {
+				missingIds = append(missingIds, id)
+			}
+		}
+		languageSupports, err = client.LanguageSupports.GetByIDs(missingIds)
+		if err != nil {
+			return nil, err
+		}
+		languageSupports = append(languageSupports, languageSupports...)
+		err = SaveItems(endpoint.EPLanguageSupports, languageSupports)
+		if err != nil {
+			return nil, err
+		}
+	}
 	res.LanguageSupports = languageSupports
 
 	gameLocalizationIds := make([]uint64, 0, len(game.GameLocalizations))
@@ -406,6 +877,30 @@ func ConvertGame(game *pb.Game, client *igdb.Client) (*model.Game, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(gameLocalizations) != len(gameLocalizationIds) {
+		missingIds := make([]uint64, 0, len(gameLocalizationIds)-len(gameLocalizations))
+		for _, id := range gameLocalizationIds {
+			found := false
+			for _, item := range gameLocalizations {
+				if item.GetId() == id {
+					found = true
+					break
+				}
+			}
+			if !found {
+				missingIds = append(missingIds, id)
+			}
+		}
+		gameLocalizations, err = client.GameLocalizations.GetByIDs(missingIds)
+		if err != nil {
+			return nil, err
+		}
+		gameLocalizations = append(gameLocalizations, gameLocalizations...)
+		err = SaveItems(endpoint.EPGameLocalizations, gameLocalizations)
+		if err != nil {
+			return nil, err
+		}
+	}
 	res.GameLocalizations = gameLocalizations
 
 	collectionIds := make([]uint64, 0, len(game.Collections))
@@ -415,6 +910,30 @@ func ConvertGame(game *pb.Game, client *igdb.Client) (*model.Game, error) {
 	collections, err := GetItemsByIds[pb.Collection](endpoint.EPCollections, collectionIds)
 	if err != nil {
 		return nil, err
+	}
+	if len(collections) != len(collectionIds) {
+		missingIds := make([]uint64, 0, len(collectionIds)-len(collections))
+		for _, id := range collectionIds {
+			found := false
+			for _, item := range collections {
+				if item.GetId() == id {
+					found = true
+					break
+				}
+			}
+			if !found {
+				missingIds = append(missingIds, id)
+			}
+		}
+		collections, err = client.Collections.GetByIDs(missingIds)
+		if err != nil {
+			return nil, err
+		}
+		collections = append(collections, collections...)
+		err = SaveItems(endpoint.EPCollections, collections)
+		if err != nil {
+			return nil, err
+		}
 	}
 	res.Collections = collections
 
